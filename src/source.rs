@@ -11,7 +11,7 @@ use std::process::Stdio;
 use std::time::Duration;
 
 /// Playlists longer than this are cut off.
-const MAX_PLAYLIST: usize = 100;
+pub const MAX_PLAYLIST: usize = 100;
 
 pub fn is_url(query: &str) -> bool {
     query.starts_with("http://") || query.starts_with("https://")
@@ -24,8 +24,8 @@ fn is_playlist(url: &str) -> bool {
 /// Finds the song(s) for a link or search. Playlists give many songs.
 pub async fn resolve(query: &str, requester: UserId) -> Result<Vec<TrackInfo>, Error> {
     let query = query.trim();
-    if query.contains("spotify.com") {
-        return Err("Spotify links can't be played directly. Search the song name instead.".into());
+    if crate::spotify::is_spotify(query) {
+        return crate::spotify::resolve(query, requester).await;
     }
     if is_url(query) && is_playlist(query) {
         return playlist(query, requester).await;
@@ -56,7 +56,7 @@ pub async fn resolve(query: &str, requester: UserId) -> Result<Vec<TrackInfo>, E
 }
 
 /// The YouTube Music search page, filtered to songs.
-fn youtube_music_search(query: &str) -> String {
+pub fn youtube_music_search(query: &str) -> String {
     let encoded: String = query
         .bytes()
         .map(|b| match b {
@@ -147,8 +147,15 @@ impl YtDlpStream {
 #[async_trait]
 impl Compose for YtDlpStream {
     fn create(&mut self) -> Result<AudioStream<Box<dyn MediaSource>>, AudioStreamError> {
+        // A YouTube Music search (from a Spotify song) plays its top result.
+        let pick = if self.url.contains("music.youtube.com/search") {
+            ["--playlist-items", "1"]
+        } else {
+            ["--no-playlist", "--no-playlist"]
+        };
         let child = process::command("yt-dlp")
-            .args(["--quiet", "--no-warnings", "--no-playlist"])
+            .args(["--quiet", "--no-warnings"])
+            .args(pick)
             .args(["--format", "bestaudio[acodec=opus]/bestaudio/best"])
             .args(["--output", "-", &self.url])
             .stdin(Stdio::null())

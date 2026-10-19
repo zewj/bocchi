@@ -10,9 +10,11 @@ chrono = { version = "0.4.45", default-features = false, features = ["clock"] }
 dotenvy = "0.15"
 eframe = "0.37"
 egui_extras = { version = "0.37", features = ["http", "image"] }
+futures = "0.3.34"
 image = { version = "0.25.10", default-features = false, features = ["jpeg", "png", "webp"] }
 poise = "0.6"
 rand = "0.9"
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "json"] }
 serde_json = "1.0.154"
 songbird = { version = "0.6", features = ["builtin-queue"] }
 symphonia = { version = "0.5", features = ["aac", "isomp4", "mkv", "mp3", "ogg", "pcm", "wav", "flac"] }

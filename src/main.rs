@@ -20,6 +20,7 @@ mod log;
 mod player;
 mod process;
 mod source;
+mod spotify;
 mod theme;
 mod widgets;
 mod util;

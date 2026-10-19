@@ -9,7 +9,7 @@ use std::time::Duration;
 #[poise::command(slash_command, prefix_command, category = "Music", guild_only, aliases("p"))]
 pub async fn play(
     ctx: Context<'_>,
-    #[description = "Song name (start with video: for the music video), or a link"]
+    #[description = "Song name (video: for the music video), or a YouTube / Spotify link"]
     #[rest]
     query: String,
 ) -> Result<(), Error> {

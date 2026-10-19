@@ -34,7 +34,8 @@ To run without a window (e.g. as a service): `bocchi.exe --headless`.
 | General  | `join` `leave` (`dc`) `volume 0-200` `help` `ping` |
 
 The bot leaves after 5 minutes with nothing playing, or 1 minute after everyone leaves the channel.
-Spotify links can't be played directly (search the song name instead). Playlists are capped at 100 songs.
+Spotify playlist, album and song links work without an API key: Bocchi reads Spotify's public embed page
+and finds each song on YouTube Music right before it plays. Playlists are capped at 100 songs.
 
 ## Project layout
 
@@ -50,6 +51,7 @@ src/
   process.rs     starting yt-dlp without console windows
   data.rs        shared state: per-server volume, loop mode, song info
   source.rs      links / searches / playlists -> songs (yt-dlp)
+  spotify.rs     Spotify links via the public embed page
   player.rs      joining voice, the queue, "now playing", auto-leave when idle
   events.rs      leave when everyone else leaves
   util.rs        embeds, time formatting, progress bar
