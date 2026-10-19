@@ -56,8 +56,22 @@ pub fn apply(ctx: &egui::Context) {
     });
 }
 
-/// The window icon, drawn in code: a pink tile with Bocchi's yellow and blue cube hair clips.
+/// The window icon: `assets/icon.png`, built into the program.
+/// Falls back to the drawn hair-clip tile if the picture can't be read.
 pub fn icon() -> IconData {
+    const PICTURE: &[u8] = include_bytes!("../assets/icon.png");
+    match image::load_from_memory(PICTURE) {
+        Ok(picture) => {
+            let picture = picture.to_rgba8();
+            let (width, height) = picture.dimensions();
+            IconData { rgba: picture.into_raw(), width, height }
+        }
+        Err(_) => drawn_icon(),
+    }
+}
+
+/// A pink tile with Bocchi's yellow and blue cube hair clips, drawn in code.
+fn drawn_icon() -> IconData {
     const SIZE: u32 = 64;
     let mut rgba = vec![0u8; (SIZE * SIZE * 4) as usize];
     let mut paint = |x: u32, y: u32, color: Color32| {
