@@ -92,12 +92,15 @@ async fn playlist(url: &str, requester: UserId) -> Result<Vec<TrackInfo>, Error>
 /// with "403 Forbidden". yt-dlp's own downloader knows how to get the audio, so we use it.
 pub struct YtDlpStream {
     url: String,
+    duration: Option<Duration>,
 }
 
 impl YtDlpStream {
-    pub fn input(url: String) -> Input {
-        // Lazy: yt-dlp only starts when the song is about to play (and again for seeking back).
-        Input::Lazy(Box::new(Self { url }))
+    /// Lazy: yt-dlp only starts when the song is about to play (and again for seeking back).
+    /// Knowing the length lets songbird start the *next* song 5 seconds early, so there's
+    /// no gap between songs.
+    pub fn input(url: String, duration: Option<Duration>) -> Input {
+        Input::Lazy(Box::new(Self { url, duration }))
     }
 }
 
@@ -126,7 +129,7 @@ impl Compose for YtDlpStream {
     }
 
     async fn aux_metadata(&mut self) -> Result<AuxMetadata, AudioStreamError> {
-        // We already looked the song up in `resolve`.
-        Err(AudioStreamError::Unsupported)
+        // songbird asks for this to schedule the next song's preload.
+        Ok(AuxMetadata { duration: self.duration, source_url: Some(self.url.clone()), ..Default::default() })
     }
 }

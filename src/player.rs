@@ -102,7 +102,7 @@ impl Shared {
 
 /// Adds a song to the end of the queue. It starts right away if nothing is playing.
 pub async fn enqueue(shared: &Shared, guild: GuildId, call: &CallLock, song: TrackInfo) -> TrackHandle {
-    let input = crate::source::YtDlpStream::input(song.url.clone());
+    let input = crate::source::YtDlpStream::input(song.url.clone(), song.duration);
     let track = Track::new_with_data(input, Arc::new(song));
     let volume = shared.state(guild, |s| s.volume);
 
