@@ -81,10 +81,14 @@ pub async fn start(config: Config, guilds: Guilds, status: StatusLock) -> Result
         .setup(move |ctx, ready, framework| {
             Box::pin(async move {
                 let commands = &framework.options().commands;
-                match dev_guild {
-                    Some(guild) => poise::builtins::register_in_guild(ctx, commands, guild).await?,
-                    None => poise::builtins::register_globally(ctx, commands).await?,
+                // Global: every server Bocchi joins gets the slash commands.
+                poise::builtins::register_globally(ctx, commands).await?;
+                // Older versions registered them only in one test server; clear that copy so
+                // they don't show up twice there.
+                if let Some(guild) = dev_guild {
+                    let _ = guild.set_commands(ctx, Vec::new()).await;
                 }
+                log!("Slash commands registered for all servers");
                 ctx.set_activity(Some(serenity::ActivityData::playing(format!("guitar in the closet 🎸 {prefix}play"))));
                 crate::emojis::setup(&ctx.http).await;
                 log!("Online as {} in {} server(s)", ready.user.name, ready.guilds.len());

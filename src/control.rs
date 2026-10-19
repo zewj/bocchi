@@ -138,7 +138,8 @@ pub async fn run(bot: &Bot, guild: GuildId, action: Action) -> Result<String, Er
             for song in call.lock().await.queue().current_queue() {
                 let _ = song.set_volume(level);
             }
-            format!("Volume set to {:.0}%", level * 100.0)
+            // Not logged: dragging the slider would flood the log.
+            String::new()
         }
         Action::Loop(mode) => {
             bot.guilds.lock().unwrap().entry(guild).or_default().loop_mode = mode;

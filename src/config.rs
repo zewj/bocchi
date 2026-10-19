@@ -8,7 +8,7 @@ const FILE: &str = ".env";
 pub struct Config {
     pub token: String,
     pub prefix: String,
-    /// Optional test server ID: slash commands show up there instantly.
+    /// Only kept to clean up slash commands that older versions registered in one server.
     pub guild_id: String,
     /// Start the bot as soon as the control panel opens.
     pub autostart: bool,

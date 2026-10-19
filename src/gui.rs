@@ -128,7 +128,8 @@ impl ControlPanel {
         let Some(bot) = self.bot.lock().unwrap().clone() else { return };
         self.runtime.spawn(async move {
             match control::run(&bot, guild, action).await {
-                Ok(message) => log!("{message}"),
+                Ok(message) if !message.is_empty() => log!("{message}"),
+                Ok(_) => {}
                 Err(e) => log!("Couldn't do that: {e}"),
             }
         });
@@ -360,10 +361,13 @@ impl ControlPanel {
             }
 
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                let mut volume = self.volume_drag.unwrap_or(player.volume * 100.0);
+                // Rounded, because 30% is stored as 0.3 and comes back as 29.999...; without
+                // this the slider "changes" every frame and keeps re-sending the volume.
+                let current = (player.volume * 100.0).round();
+                let mut volume = self.volume_drag.unwrap_or(current);
                 let slider = ui.add(egui::Slider::new(&mut volume, 0.0..=200.0).suffix("%").integer().show_value(true));
                 self.volume_drag = slider.dragged().then_some(volume);
-                if slider.changed() {
+                if slider.changed() && (volume - current).abs() >= 0.5 {
                     self.act(guild, Action::Volume(volume / 100.0));
                     // Show the new value right away instead of waiting for the next refresh.
                     if let Some(view) = self.players.lock().unwrap().iter_mut().find(|p| p.guild == guild) {
@@ -481,10 +485,6 @@ impl ControlPanel {
 
                 ui.label("Prefix");
                 ui.add(egui::TextEdit::singleline(&mut self.config.prefix).desired_width(60.0));
-                ui.end_row();
-
-                ui.label("Test server ID");
-                ui.add(egui::TextEdit::singleline(&mut self.config.guild_id).hint_text("optional").desired_width(200.0));
                 ui.end_row();
 
                 ui.label("");
