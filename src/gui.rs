@@ -1,15 +1,16 @@
 //! The control panel window: start/stop the bot, settings, every server it's playing in,
 //! a "now playing" card with album art, playback controls, the setlist (queue), and the log.
+//! All buttons and icons are Bocchi's own (see widgets.rs).
 
 use crate::bot::{self, Bot, Status, StatusLock};
 use crate::config::Config;
 use crate::control::{self, Action, PlayerView};
 use crate::data::{Error, Guilds, LoopMode, TrackInfo};
-use crate::theme::{self, BLUE, CARD, GREEN, MUTED, PINK, PINK_DEEP, RED, YELLOW};
+use crate::theme::{self, BLUE, CARD, GREEN, MUTED, PINK, PINK_DEEP, RED, TEXT, YELLOW};
+use crate::widgets::{self, button, Icon};
 use crate::{log, player, util};
 use eframe::egui::{self, Color32, RichText, Sense, Vec2};
 use poise::serenity_prelude::GuildId;
-use poise::ChoiceParameter;
 use std::sync::atomic::Ordering;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -18,7 +19,7 @@ use tokio::runtime::Handle;
 const REFRESH: Duration = Duration::from_millis(500);
 const ART_SIZE: Vec2 = Vec2::new(208.0, 117.0);
 const SMALL_ART: Vec2 = Vec2::new(64.0, 36.0);
-const ROW_HEIGHT: f32 = 44.0;
+const ROW_HEIGHT: f32 = 46.0;
 
 pub fn run(runtime: Handle) -> Result<(), Error> {
     let options = eframe::NativeOptions {
@@ -26,7 +27,7 @@ pub fn run(runtime: Handle) -> Result<(), Error> {
             .with_title("Bocchi")
             .with_icon(theme::icon())
             .with_inner_size([1040.0, 720.0])
-            .with_min_inner_size([760.0, 520.0]),
+            .with_min_inner_size([780.0, 540.0]),
         ..Default::default()
     };
     eframe::run_native(
@@ -168,12 +169,13 @@ impl ControlPanel {
     fn top_bar(&mut self, ui: &mut egui::Ui, status: &Status, players: &[PlayerView]) {
         ui.add_space(8.0);
         ui.horizontal(|ui| {
-            ui.label(RichText::new("🎸 Bocchi").size(24.0).strong().color(PINK));
+            widgets::logo(ui, 28.0);
+            ui.label(RichText::new("Bocchi").size(24.0).strong().color(PINK));
             ui.label(RichText::new("by Bocchi").color(MUTED));
             ui.add_space(14.0);
 
             let (color, text) = match status {
-                Status::Offline => (MUTED, "Hiding in the closet (offline)".to_string()),
+                Status::Offline => (MUTED, "Hiding in the closet".to_string()),
                 Status::Starting => (YELLOW, "G-getting ready...".to_string()),
                 Status::Online { name, since } => {
                     (GREEN, format!("On stage as {name} · {}", util::format_time(since.elapsed())))
@@ -185,22 +187,19 @@ impl ControlPanel {
             if matches!(status, Status::Online { .. }) {
                 let played = player::SONGS_PLAYED.load(Ordering::Relaxed);
                 let playing = players.iter().filter(|p| p.now.is_some()).count();
-                pill(ui, BLUE, &format!("🎵 {played} played · 🔊 {playing} playing"));
+                pill(ui, BLUE, &format!("{played} songs played · {playing} playing now"));
             }
 
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                if ui.button("⚙ Settings").clicked() {
+                if ui.add(button(Icon::Gear).text("Settings").active(self.settings_open)).clicked() {
                     self.settings_open = !self.settings_open;
                 }
                 let running = matches!(status, Status::Starting | Status::Online { .. });
                 if running {
-                    if ui.add(egui::Button::new(RichText::new("⏹ Stop").color(Color32::WHITE)).fill(RED.gamma_multiply(0.7))).clicked() {
+                    if ui.add(button(Icon::Power).text("Stop").danger()).clicked() {
                         self.stop_bot();
                     }
-                } else if ui
-                    .add(egui::Button::new(RichText::new("▶ Start").color(Color32::BLACK).strong()).fill(PINK))
-                    .clicked()
-                {
+                } else if ui.add(button(Icon::Power).text("Start").primary()).clicked() {
                     self.start_bot();
                 }
             });
@@ -225,21 +224,25 @@ impl ControlPanel {
 
         for player in players {
             let selected = self.selected == Some(player.guild);
-            let (icon, color) = match (&player.now, player.paused) {
-                (None, _) => ("💤", MUTED),
-                (Some(_), true) => ("📦", YELLOW),
-                (Some(_), false) => ("🔊", GREEN),
+            let (state, color) = match (&player.now, player.paused) {
+                (None, _) => ("Idle", MUTED),
+                (Some(_), true) => ("Paused", YELLOW),
+                (Some(_), false) => ("Playing", GREEN),
             };
             let fill = if selected { PINK_DEEP.gamma_multiply(0.35) } else { CARD };
             let card = egui::Frame::new().fill(fill).corner_radius(10).inner_margin(10).show(ui, |ui| {
                 ui.set_width(ui.available_width());
-                ui.label(RichText::new(format!("{icon} {}", player.server)).strong().color(color));
-                ui.label(RichText::new(format!("#{}", player.channel)).small().color(MUTED));
+                ui.horizontal(|ui| {
+                    widgets::dot(ui, color);
+                    ui.label(RichText::new(&player.server).strong().color(TEXT));
+                });
+                ui.label(RichText::new(format!("{state} in #{}", player.channel)).small().color(MUTED));
                 if let Some((song, _)) = &player.now {
-                    ui.label(RichText::new(&song.title).small()).on_hover_text(&song.title);
+                    ui.label(RichText::new(&song.title).small().color(PINK)).on_hover_text(&song.title);
                 }
             });
-            if card.response.interact(Sense::click()).clicked() {
+            let card = card.response.interact(Sense::click()).on_hover_cursor(egui::CursorIcon::PointingHand);
+            if card.clicked() {
                 self.selected = Some(player.guild);
             }
             ui.add_space(4.0);
@@ -251,10 +254,10 @@ impl ControlPanel {
     fn player(&mut self, ui: &mut egui::Ui, player: &PlayerView) {
         let guild = player.guild;
         ui.add_space(8.0);
-        ui.label(RichText::new(format!("{} · 🔊 {}", player.server, player.channel)).color(MUTED));
+        ui.label(RichText::new(format!("{} · #{}", player.server, player.channel)).color(MUTED));
         ui.add_space(6.0);
 
-        egui::Frame::new().fill(CARD).corner_radius(14).inner_margin(14).show(ui, |ui| {
+        egui::Frame::new().fill(CARD).corner_radius(14).inner_margin(16).show(ui, |ui| {
             ui.set_width(ui.available_width());
             self.now_playing(ui, player);
         });
@@ -264,17 +267,18 @@ impl ControlPanel {
         ui.horizontal(|ui| {
             let field = ui.add(
                 egui::TextEdit::singleline(&mut self.add_query)
-                    .hint_text("🎸 Add a song: name or link...")
+                    .hint_text("Add a song: name or link...")
+                    .margin(egui::Margin::symmetric(10, 8))
                     .desired_width(ui.available_width() - 90.0),
             );
             let pressed_enter = field.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter));
-            let add = ui.add(egui::Button::new(RichText::new("➕ Add").color(Color32::BLACK)).fill(PINK));
+            let add = ui.add(button(Icon::Plus).text("Add").primary());
             if (add.clicked() || pressed_enter) && !self.add_query.trim().is_empty() {
                 self.act(guild, Action::Add(self.add_query.trim().to_string()));
                 self.add_query.clear();
             }
         });
-        ui.add_space(10.0);
+        ui.add_space(12.0);
 
         self.setlist(ui, player);
     }
@@ -283,9 +287,10 @@ impl ControlPanel {
         let guild = player.guild;
         let Some((song, position)) = &player.now else {
             ui.horizontal(|ui| {
-                art(ui, None, ART_SIZE);
+                widgets::placeholder(ui, ART_SIZE, Icon::Note);
+                ui.add_space(8.0);
                 ui.vertical(|ui| {
-                    ui.add_space(30.0);
+                    ui.add_space(32.0);
                     ui.label(RichText::new("Nothing playing...").size(20.0).color(MUTED));
                     ui.label(RichText::new("Add a song below, or use !play in Discord.").color(MUTED));
                 });
@@ -295,78 +300,57 @@ impl ControlPanel {
 
         ui.horizontal(|ui| {
             art(ui, util::thumbnail(song), ART_SIZE);
-            ui.add_space(6.0);
+            ui.add_space(8.0);
             ui.vertical(|ui| {
-                let heading = if player.paused { "📦 PAUSED · hiding in the box" } else { "🎸 NOW PLAYING" };
-                ui.label(RichText::new(heading).small().strong().color(if player.paused { YELLOW } else { PINK }));
-                ui.hyperlink_to(RichText::new(&song.title).size(19.0).strong().color(Color32::WHITE), &song.url);
+                let (heading, color) =
+                    if player.paused { ("PAUSED · hiding in the box", YELLOW) } else { ("NOW PLAYING", PINK) };
+                ui.label(RichText::new(heading).small().strong().color(color));
+                ui.hyperlink_to(RichText::new(&song.title).size(19.0).strong().color(TEXT), &song.url);
                 ui.label(RichText::new(format!("requested by {}", requester(player, song))).color(MUTED));
-                ui.add_space(8.0);
-
-                // Progress bar you can click to jump to that point.
-                let fraction = song
-                    .duration
-                    .filter(|d| !d.is_zero())
-                    .map(|d| (position.as_secs_f32() / d.as_secs_f32()).clamp(0.0, 1.0))
-                    .unwrap_or(0.0);
-                let times = format!("{} / {}", util::format_time(*position), util::format_length(song.duration));
-                let bar = ui
-                    .add(egui::ProgressBar::new(fraction).fill(PINK_DEEP).text(times).desired_height(16.0))
-                    .interact(Sense::click())
-                    .on_hover_text("Click to jump here");
-                if bar.clicked() {
-                    if let (Some(pointer), Some(length)) = (bar.interact_pointer_pos(), song.duration) {
-                        let at = ((pointer.x - bar.rect.left()) / bar.rect.width()).clamp(0.0, 1.0);
-                        self.act(guild, Action::Seek(length.mul_f32(at)));
-                    }
-                }
+                ui.add_space(10.0);
+                self.seek_bar(ui, guild, song, *position);
             });
         });
-        ui.add_space(10.0);
+        ui.add_space(12.0);
 
-        // Controls
+        // Controls: main transport in the middle-left, extras after, volume and loop on the right.
         ui.horizontal(|ui| {
-            let big = |text: &str| egui::Button::new(RichText::new(text).size(20.0)).min_size(Vec2::new(52.0, 40.0));
-            if ui.add(big("⏮")).on_hover_text("Back to the start").clicked() {
+            if ui.add(button(Icon::Previous).size(18.0)).on_hover_text("Back to the start").clicked() {
                 self.act(guild, Action::Replay);
             }
             let (icon, action, tip) =
-                if player.paused { ("▶", Action::Resume, "Resume") } else { ("⏸", Action::Pause, "Pause") };
-            if ui.add(big(icon).fill(PINK_DEEP)).on_hover_text(tip).clicked() {
+                if player.paused { (Icon::Play, Action::Resume, "Resume") } else { (Icon::Pause, Action::Pause, "Pause") };
+            if ui.add(button(icon).size(20.0).round().primary()).on_hover_text(tip).clicked() {
                 self.act(guild, action);
             }
-            if ui.add(big("⏭")).on_hover_text("Skip").clicked() {
+            if ui.add(button(Icon::Next).size(18.0)).on_hover_text("Skip").clicked() {
                 self.act(guild, Action::Skip);
             }
-            ui.add_space(12.0);
-            if ui.add_enabled(player.upcoming.len() > 1, egui::Button::new("🔀 Shuffle")).clicked() {
+            ui.add_space(14.0);
+
+            let shuffle = button(Icon::Shuffle).enabled(player.upcoming.len() > 1);
+            if ui.add(shuffle).on_hover_text("Shuffle the setlist").clicked() {
                 self.act(guild, Action::Shuffle);
             }
-            if ui.button("⏹ Stop").clicked() {
+            let (loop_icon, next_mode, tip) = match player.loop_mode {
+                LoopMode::Off => (Icon::Loop, LoopMode::Queue, "Loop: off (click to loop the queue)"),
+                LoopMode::Queue => (Icon::Loop, LoopMode::Song, "Loop: queue (click to loop this song)"),
+                LoopMode::Song => (Icon::LoopOne, LoopMode::Off, "Loop: this song (click to turn off)"),
+            };
+            let looping = player.loop_mode != LoopMode::Off;
+            if ui.add(button(loop_icon).active(looping)).on_hover_text(tip).clicked() {
+                self.act(guild, Action::Loop(next_mode));
+            }
+            if ui.add(button(Icon::Stop)).on_hover_text("Stop and clear the setlist").clicked() {
                 self.act(guild, Action::Stop);
             }
-            if ui.button(RichText::new("👋 Leave").color(RED)).clicked() {
+            if ui.add(button(Icon::Leave).danger()).on_hover_text("Leave the voice channel").clicked() {
                 self.act(guild, Action::Leave);
             }
 
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                let mut mode = player.loop_mode;
-                let label = match mode {
-                    LoopMode::Off => "➡ no loop",
-                    LoopMode::Song => "🔂 loop song",
-                    LoopMode::Queue => "🔁 loop queue",
-                };
-                egui::ComboBox::from_id_salt("loop").selected_text(label).show_ui(ui, |ui| {
-                    for option in [LoopMode::Off, LoopMode::Song, LoopMode::Queue] {
-                        ui.selectable_value(&mut mode, option, option.name());
-                    }
-                });
-                if mode != player.loop_mode {
-                    self.act(guild, Action::Loop(mode));
-                }
-
                 let mut volume = self.volume_drag.unwrap_or(player.volume * 100.0);
-                let slider = ui.add(egui::Slider::new(&mut volume, 0.0..=200.0).suffix("%").integer());
+                let slider = ui.add(egui::Slider::new(&mut volume, 0.0..=200.0).suffix("%").integer().show_value(true));
                 self.volume_drag = slider.dragged().then_some(volume);
                 if slider.changed() {
                     self.act(guild, Action::Volume(volume / 100.0));
@@ -375,8 +359,42 @@ impl ControlPanel {
                         view.volume = volume / 100.0;
                     }
                 }
-                ui.label(if volume < 1.0 { "🔇" } else { "🔊" });
+                let volume_icon = if volume < 1.0 { Icon::Mute } else { Icon::Volume };
+                widgets::icon(ui, volume_icon, 18.0, MUTED);
             });
+        });
+    }
+
+    /// A progress bar you can click to jump to that point.
+    fn seek_bar(&self, ui: &mut egui::Ui, guild: GuildId, song: &TrackInfo, position: Duration) {
+        let fraction = song
+            .duration
+            .filter(|d| !d.is_zero())
+            .map(|d| (position.as_secs_f32() / d.as_secs_f32()).clamp(0.0, 1.0))
+            .unwrap_or(0.0);
+
+        ui.horizontal(|ui| {
+            ui.label(RichText::new(util::format_time(position)).small().monospace().color(MUTED));
+            let length_text = util::format_length(song.duration);
+            let width = ui.available_width() - 50.0;
+            let (rect, response) = ui.allocate_exact_size(Vec2::new(width, 14.0), Sense::click());
+            let hover = ui.ctx().animate_bool(response.id, response.hovered());
+
+            let track = egui::Rect::from_center_size(rect.center(), Vec2::new(rect.width(), 5.0 + 2.0 * hover));
+            let painter = ui.painter();
+            painter.rect_filled(track, egui::CornerRadius::same(4), Color32::from_rgb(0x3A, 0x31, 0x40));
+            let filled = egui::Rect::from_min_size(track.min, Vec2::new(track.width() * fraction, track.height()));
+            painter.rect_filled(filled, egui::CornerRadius::same(4), PINK);
+            painter.circle_filled(egui::pos2(filled.right(), track.center().y), 5.0 + 2.0 * hover, Color32::WHITE);
+
+            if response.clicked() {
+                if let (Some(pointer), Some(length)) = (response.interact_pointer_pos(), song.duration) {
+                    let at = ((pointer.x - rect.left()) / rect.width()).clamp(0.0, 1.0);
+                    self.act(guild, Action::Seek(length.mul_f32(at)));
+                }
+            }
+            response.on_hover_cursor(egui::CursorIcon::PointingHand).on_hover_text("Click to jump here");
+            ui.label(RichText::new(length_text).small().monospace().color(MUTED));
         });
     }
 
@@ -407,11 +425,11 @@ impl ControlPanel {
                 let song = &player.upcoming[i];
                 let position = i + 1; // position 0 is the song playing now
                 ui.horizontal(|ui| {
-                    ui.set_height(ROW_HEIGHT - 4.0);
+                    ui.set_height(ROW_HEIGHT - 6.0);
                     ui.label(RichText::new(format!("{position:>3}")).monospace().color(MUTED));
                     art(ui, util::thumbnail(song), SMALL_ART);
                     ui.vertical(|ui| {
-                        ui.label(RichText::new(&song.title).strong()).on_hover_text(&song.url);
+                        ui.label(RichText::new(&song.title).strong().color(TEXT)).on_hover_text(&song.url);
                         ui.label(
                             RichText::new(format!("{} · {}", util::format_length(song.duration), requester(player, song)))
                                 .small()
@@ -419,13 +437,15 @@ impl ControlPanel {
                         );
                     });
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                        if ui.small_button("✖").on_hover_text("Remove").clicked() {
+                        if ui.add(button(Icon::Close).size(12.0).danger()).on_hover_text("Remove").clicked() {
                             self.act(guild, Action::Remove(position));
                         }
-                        if ui.add_enabled(position < count, egui::Button::new("▼").small()).on_hover_text("Move down").clicked() {
+                        let down = button(Icon::Down).size(12.0).enabled(position < count);
+                        if ui.add(down).on_hover_text("Move down").clicked() {
                             self.act(guild, Action::Move(position, position + 1));
                         }
-                        if ui.add_enabled(position > 1, egui::Button::new("▲").small()).on_hover_text("Move up").clicked() {
+                        let up = button(Icon::Up).size(12.0).enabled(position > 1);
+                        if ui.add(up).on_hover_text("Move up").clicked() {
                             self.act(guild, Action::Move(position, position - 1));
                         }
                     });
@@ -439,8 +459,8 @@ impl ControlPanel {
     fn settings_window(&mut self, ctx: &egui::Context) {
         let mut open = self.settings_open;
         let mut restart = false;
-        egui::Window::new("⚙ Settings").open(&mut open).resizable(false).collapsible(false).show(ctx, |ui| {
-            egui::Grid::new("settings").num_columns(2).spacing([12.0, 8.0]).show(ui, |ui| {
+        egui::Window::new("Settings").open(&mut open).resizable(false).collapsible(false).show(ctx, |ui| {
+            egui::Grid::new("settings").num_columns(2).spacing([12.0, 10.0]).show(ui, |ui| {
                 ui.label("Bot token");
                 ui.horizontal(|ui| {
                     ui.add(egui::TextEdit::singleline(&mut self.config.token).password(!self.show_token).desired_width(320.0));
@@ -466,15 +486,15 @@ impl ControlPanel {
                     .small()
                     .color(MUTED),
             );
-            ui.add_space(6.0);
+            ui.add_space(8.0);
             ui.horizontal(|ui| {
-                if ui.button("💾 Save").clicked() {
+                if ui.add(button(Icon::Plus).text("Save")).clicked() {
                     match self.config.save() {
                         Ok(()) => log!("Settings saved."),
                         Err(e) => log!("Couldn't save settings: {e}"),
                     }
                 }
-                if ui.add(egui::Button::new(RichText::new("💾 Save & restart").color(Color32::BLACK)).fill(PINK)).clicked() {
+                if ui.add(button(Icon::Power).text("Save & restart").primary()).clicked() {
                     match self.config.save() {
                         Ok(()) => restart = true,
                         Err(e) => log!("Couldn't save settings: {e}"),
@@ -502,11 +522,18 @@ impl ControlPanel {
 
 // ============================== Small pieces ==============================
 
-/// A rounded status badge.
+/// A rounded status badge with a dot.
 fn pill(ui: &mut egui::Ui, color: Color32, text: &str) {
-    egui::Frame::new().fill(color.gamma_multiply(0.18)).corner_radius(20).inner_margin(egui::Margin::symmetric(10, 4)).show(ui, |ui| {
-        ui.label(RichText::new(format!("● {text}")).color(color));
-    });
+    egui::Frame::new()
+        .fill(color.gamma_multiply(0.16))
+        .corner_radius(20)
+        .inner_margin(egui::Margin::symmetric(10, 4))
+        .show(ui, |ui| {
+            ui.horizontal(|ui| {
+                widgets::dot(ui, color);
+                ui.label(RichText::new(text).color(color));
+            });
+        });
 }
 
 /// Album art, or a placeholder when there's none.
@@ -515,12 +542,7 @@ fn art(ui: &mut egui::Ui, url: Option<String>, size: Vec2) {
         Some(url) => {
             ui.add(egui::Image::new(url).fit_to_exact_size(size).corner_radius(8));
         }
-        None => {
-            egui::Frame::new().fill(PINK_DEEP.gamma_multiply(0.25)).corner_radius(8).show(ui, |ui| {
-                ui.set_min_size(size);
-                ui.centered_and_justified(|ui| ui.label(RichText::new("🎸").size(size.y * 0.4)));
-            });
-        }
+        None => widgets::placeholder(ui, size, Icon::Note),
     }
 }
 
@@ -529,14 +551,18 @@ fn requester(player: &PlayerView, song: &TrackInfo) -> String {
 }
 
 fn empty_state(ui: &mut egui::Ui, status: &Status, prefix: &str) {
-    ui.centered_and_justified(|ui| {
-        let text = match status {
-            Status::Online { .. } => format!("🎸 Ready to play!\nJoin a voice channel and use {prefix}play in Discord."),
-            Status::Starting => "G-getting ready... d-don't look at me...".to_string(),
-            Status::Failed(_) => "😰 Something went wrong. Check the log below, or open ⚙ Settings.".to_string(),
-            Status::Offline => "📦 Bocchi is hiding in her closet.\nPress ▶ Start to bring her out.".to_string(),
-        };
-        ui.label(RichText::new(text).size(17.0).color(MUTED));
+    let (title, detail) = match status {
+        Status::Online { .. } => ("Ready to play!".to_string(), format!("Join a voice channel and use {prefix}play in Discord.")),
+        Status::Starting => ("G-getting ready...".to_string(), "D-don't look at me...".to_string()),
+        Status::Failed(_) => ("Something went wrong...".to_string(), "Check the log below, or open Settings.".to_string()),
+        Status::Offline => ("Bocchi is hiding in her closet.".to_string(), "Press Start to bring her out.".to_string()),
+    };
+    ui.vertical_centered(|ui| {
+        ui.add_space(ui.available_height() * 0.3);
+        widgets::logo(ui, 56.0);
+        ui.add_space(12.0);
+        ui.label(RichText::new(title).size(20.0).strong().color(TEXT));
+        ui.label(RichText::new(detail).color(MUTED));
     });
 }
 

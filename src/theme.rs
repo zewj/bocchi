@@ -9,11 +9,15 @@ pub const BLUE: Color32 = Color32::from_rgb(0x5B, 0xA4, 0xE6);
 pub const GREEN: Color32 = Color32::from_rgb(0x7B, 0xD8, 0x8F);
 pub const RED: Color32 = Color32::from_rgb(0xED, 0x5A, 0x6A);
 pub const MUTED: Color32 = Color32::from_rgb(0x9A, 0x8F, 0xA0);
+/// Main text color.
+pub const TEXT: Color32 = Color32::from_rgb(0xEE, 0xE6, 0xF1);
+/// Dark text/icons on pink.
+pub const INK: Color32 = Color32::from_rgb(0x2A, 0x15, 0x22);
 
 const BACKGROUND: Color32 = Color32::from_rgb(0x14, 0x11, 0x17);
 const PANEL: Color32 = Color32::from_rgb(0x1B, 0x17, 0x1F);
 pub const CARD: Color32 = Color32::from_rgb(0x25, 0x1F, 0x2A);
-const CARD_HOVER: Color32 = Color32::from_rgb(0x33, 0x2A, 0x38);
+pub const CARD_HOVER: Color32 = Color32::from_rgb(0x33, 0x2A, 0x38);
 
 pub fn apply(ctx: &egui::Context) {
     let mut visuals = Visuals::dark();

@@ -19,6 +19,7 @@ mod player;
 mod process;
 mod source;
 mod theme;
+mod widgets;
 mod util;
 
 use data::Error;
