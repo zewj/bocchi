@@ -1,9 +1,9 @@
 //! Bocchi's own widgets: icons drawn with code (no emoji, no image files) and custom buttons
 //! with hover and press animations.
 
-use crate::theme::{BLUE, CARD, CARD_HOVER, INK, MUTED, PINK, PINK_DEEP, RED, TEXT, YELLOW};
+use crate::theme::{CARD, CARD_HOVER, INK, MUTED, PINK, PINK_DEEP, RED, TEXT};
 use eframe::egui::{
-    Color32, CornerRadius, CursorIcon, FontId, Painter, Pos2, Rect, Response, Sense, Shape, Stroke,
+    self, Color32, CornerRadius, CursorIcon, FontId, Painter, Pos2, Rect, Response, Sense, Shape, Stroke,
     StrokeKind, Ui, Vec2, Widget,
 };
 use std::f32::consts::TAU;
@@ -335,22 +335,12 @@ impl Widget for IconButton<'_> {
 
 // ============================== Small decorations ==============================
 
-/// Bocchi's logo: her two cube hair clips.
-pub fn logo(ui: &mut Ui, size: f32) {
-    let (rect, _) = ui.allocate_exact_size(Vec2::splat(size), Sense::hover());
-    let painter = ui.painter();
-    let cube = size * 0.48;
-    let draw = |min: Pos2, color: Color32| {
-        let face = Rect::from_min_size(min, Vec2::splat(cube));
-        painter.rect_filled(face, CornerRadius::same(3), color);
-        // A darker edge on the right and bottom so it reads as a cube.
-        let edge = Rect::from_min_max(Pos2::new(face.right() - cube * 0.22, face.top()), face.max);
-        painter.rect_filled(edge, CornerRadius::same(3), color.gamma_multiply(0.7));
-        let bottom = Rect::from_min_max(Pos2::new(face.left(), face.bottom() - cube * 0.22), face.max);
-        painter.rect_filled(bottom, CornerRadius::same(3), color.gamma_multiply(0.7));
-    };
-    draw(rect.min + Vec2::new(0.0, size * 0.06), YELLOW);
-    draw(rect.min + Vec2::new(size * 0.5, size * 0.46), BLUE);
+/// The app icon as a round picture, e.g. next to the name in the top bar.
+pub fn app_icon(ui: &mut Ui, size: f32) {
+    let picture = egui::Image::from_bytes("bytes://bocchi-icon.png", crate::theme::ICON_PNG)
+        .fit_to_exact_size(Vec2::splat(size))
+        .corner_radius((size / 2.0) as u8);
+    ui.add(picture);
 }
 
 /// A small colored status dot, sized to sit next to text.

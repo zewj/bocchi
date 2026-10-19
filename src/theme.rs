@@ -1,6 +1,7 @@
 //! Bocchi's look: her pink, plus the yellow and blue of her cube hair clips.
 
-use eframe::egui::{self, Color32, CornerRadius, IconData, Stroke, Visuals};
+use eframe::egui::{self, Color32, CornerRadius, FontData, FontDefinitions, FontFamily, IconData, Stroke, Visuals};
+use std::sync::Arc;
 
 pub const PINK: Color32 = Color32::from_rgb(0xF4, 0xA7, 0xBB);
 pub const PINK_DEEP: Color32 = Color32::from_rgb(0xD9, 0x5F, 0x8C);
@@ -19,7 +20,26 @@ const PANEL: Color32 = Color32::from_rgb(0x1B, 0x17, 0x1F);
 pub const CARD: Color32 = Color32::from_rgb(0x25, 0x1F, 0x2A);
 pub const CARD_HOVER: Color32 = Color32::from_rgb(0x33, 0x2A, 0x38);
 
+/// The app icon picture (also shown next to the name in the window).
+pub const ICON_PNG: &[u8] = include_bytes!("../assets/icon.png");
+
+/// RocknRoll One: a free rock-and-roll style display font, used for the "Bocchi" title.
+const TITLE_FONT: &[u8] = include_bytes!("../assets/RocknRollOne-Regular.ttf");
+
+/// The font family for titles, e.g. `RichText::new("Bocchi").family(theme::title_font())`.
+pub fn title_font() -> FontFamily {
+    FontFamily::Name("title".into())
+}
+
+fn install_fonts(ctx: &egui::Context) {
+    let mut fonts = FontDefinitions::default();
+    fonts.font_data.insert("rocknroll".into(), Arc::new(FontData::from_static(TITLE_FONT)));
+    fonts.families.insert(title_font(), vec!["rocknroll".into()]);
+    ctx.set_fonts(fonts);
+}
+
 pub fn apply(ctx: &egui::Context) {
+    install_fonts(ctx);
     let mut visuals = Visuals::dark();
     visuals.panel_fill = PANEL;
     visuals.window_fill = CARD;
@@ -59,8 +79,7 @@ pub fn apply(ctx: &egui::Context) {
 /// The window icon: `assets/icon.png`, built into the program.
 /// Falls back to the drawn hair-clip tile if the picture can't be read.
 pub fn icon() -> IconData {
-    const PICTURE: &[u8] = include_bytes!("../assets/icon.png");
-    match image::load_from_memory(PICTURE) {
+    match image::load_from_memory(ICON_PNG) {
         Ok(picture) => {
             let picture = picture.to_rgba8();
             let (width, height) = picture.dimensions();

@@ -169,9 +169,8 @@ impl ControlPanel {
     fn top_bar(&mut self, ui: &mut egui::Ui, status: &Status, players: &[PlayerView]) {
         ui.add_space(8.0);
         ui.horizontal(|ui| {
-            widgets::logo(ui, 28.0);
-            ui.label(RichText::new("Bocchi").size(24.0).strong().color(PINK));
-            ui.label(RichText::new("by Bocchi").color(MUTED));
+            widgets::app_icon(ui, 34.0);
+            ui.label(RichText::new("Bocchi").size(26.0).family(theme::title_font()).color(PINK));
             ui.add_space(14.0);
 
             let (color, text) = match status {
@@ -571,7 +570,7 @@ fn empty_state(ui: &mut egui::Ui, status: &Status, prefix: &str) {
     };
     ui.vertical_centered(|ui| {
         ui.add_space(ui.available_height() * 0.3);
-        widgets::logo(ui, 56.0);
+        widgets::app_icon(ui, 84.0);
         ui.add_space(12.0);
         ui.label(RichText::new(title).size(20.0).strong().color(TEXT));
         ui.label(RichText::new(detail).color(MUTED));

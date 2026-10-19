@@ -1,4 +1,4 @@
-//! Bocchi: a Discord music bot, with a desktop control panel. 🎸
+//! Bocchi: a Discord music bot with a desktop control panel. 🎸
 //! Audio comes from yt-dlp (YouTube, SoundCloud and more) and is played through songbird.
 //!
 //! Run normally for the control panel window, or with `--headless` to run without a window

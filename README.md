@@ -55,3 +55,6 @@ src/
   util.rs        embeds, time formatting, progress bar
   commands/      playback, queue, general
 ```
+
+The title font is [RocknRoll One](https://github.com/fontworks-fonts/RocknRoll) (SIL Open Font License,
+see `assets/RocknRollOne-OFL.txt`).
