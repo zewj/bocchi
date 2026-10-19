@@ -1,7 +1,7 @@
 //! Bocchi's own widgets: icons drawn with code (no emoji, no image files) and custom buttons
 //! with hover and press animations.
 
-use crate::theme::{CARD, CARD_HOVER, INK, PINK, PINK_DEEP, RED, TEXT, YELLOW, BLUE};
+use crate::theme::{BLUE, CARD, CARD_HOVER, INK, MUTED, PINK, PINK_DEEP, RED, TEXT, YELLOW};
 use eframe::egui::{
     Color32, CornerRadius, CursorIcon, FontId, Painter, Pos2, Rect, Response, Sense, Shape, Stroke,
     StrokeKind, Ui, Vec2, Widget,
@@ -39,28 +39,30 @@ pub fn paint_icon(painter: &Painter, rect: Rect, icon: Icon, color: Color32) {
     let p = |x: f32, y: f32| origin + Vec2::new(x * side, y * side);
     let line = Stroke::new((side * 0.1).max(1.5), color);
     let fill = |points: Vec<Pos2>| Shape::convex_polygon(points, color, Stroke::NONE);
+    // Triangles with softly rounded corners, like Spotify's controls.
+    let soft = |points: Vec<Pos2>| Shape::convex_polygon(rounded(&points, side * 0.07), color, Stroke::NONE);
     let bar = |x0: f32, y0: f32, x1: f32, y1: f32| {
-        Shape::rect_filled(Rect::from_min_max(p(x0, y0), p(x1, y1)), CornerRadius::same((side * 0.06) as u8), color)
+        Shape::rect_filled(Rect::from_min_max(p(x0, y0), p(x1, y1)), CornerRadius::same((side * 0.07) as u8), color)
     };
 
     match icon {
         Icon::Play => {
-            painter.add(fill(vec![p(0.3, 0.18), p(0.82, 0.5), p(0.3, 0.82)]));
+            painter.add(soft(vec![p(0.3, 0.17), p(0.85, 0.5), p(0.3, 0.83)]));
         }
         Icon::Pause => {
-            painter.add(bar(0.26, 0.2, 0.42, 0.8));
-            painter.add(bar(0.58, 0.2, 0.74, 0.8));
+            painter.add(bar(0.27, 0.18, 0.42, 0.82));
+            painter.add(bar(0.58, 0.18, 0.73, 0.82));
         }
         Icon::Stop => {
             painter.add(bar(0.24, 0.24, 0.76, 0.76));
         }
         Icon::Next => {
-            painter.add(fill(vec![p(0.2, 0.22), p(0.62, 0.5), p(0.2, 0.78)]));
-            painter.add(bar(0.66, 0.22, 0.8, 0.78));
+            painter.add(soft(vec![p(0.18, 0.18), p(0.68, 0.5), p(0.18, 0.82)]));
+            painter.add(bar(0.7, 0.18, 0.82, 0.82));
         }
         Icon::Previous => {
-            painter.add(fill(vec![p(0.8, 0.22), p(0.8, 0.78), p(0.38, 0.5)]));
-            painter.add(bar(0.2, 0.22, 0.34, 0.78));
+            painter.add(soft(vec![p(0.82, 0.18), p(0.82, 0.82), p(0.32, 0.5)]));
+            painter.add(bar(0.18, 0.18, 0.3, 0.82));
         }
         Icon::Shuffle => {
             painter.add(Shape::line(vec![p(0.12, 0.3), p(0.32, 0.3), p(0.62, 0.7), p(0.8, 0.7)], line));
@@ -141,6 +143,35 @@ fn arc(center: Pos2, radius: f32, start: f32, end: f32) -> Vec<Pos2> {
         .collect()
 }
 
+/// Rounds the corners of a convex polygon by replacing each corner with a small arc.
+fn rounded(points: &[Pos2], radius: f32) -> Vec<Pos2> {
+    let n = points.len();
+    let mut out = Vec::new();
+    for i in 0..n {
+        let (prev, corner, next) = (points[(i + n - 1) % n], points[i], points[(i + 1) % n]);
+        let to_prev = (prev - corner).normalized();
+        let to_next = (next - corner).normalized();
+        let half_angle = to_prev.dot(to_next).clamp(-1.0, 1.0).acos() / 2.0;
+        // How far along each edge the curve starts, and where its center sits.
+        let cut = radius / half_angle.tan();
+        let center = corner + (to_prev + to_next).normalized() * (radius / half_angle.sin());
+        let start = corner + to_prev * cut;
+        let end = corner + to_next * cut;
+        let (a0, a1) = ((start - center).angle(), (end - center).angle());
+        let mut sweep = a1 - a0;
+        if sweep > std::f32::consts::PI {
+            sweep -= TAU;
+        } else if sweep < -std::f32::consts::PI {
+            sweep += TAU;
+        }
+        for step in 0..=6 {
+            let angle = a0 + sweep * step as f32 / 6.0;
+            out.push(center + Vec2::angled(angle) * radius);
+        }
+    }
+    out
+}
+
 fn arrow_head(painter: &Painter, tip: Pos2, direction: Vec2, size: f32, color: Color32) {
     let back = tip - direction * size;
     let side = direction.rot90() * size * 0.6;
@@ -157,6 +188,10 @@ enum Style {
     Ghost,
     /// Red, for leaving/stopping.
     Danger,
+    /// No background at all, just the icon (Spotify's back/forward/shuffle/repeat).
+    Plain,
+    /// A white circle with a dark icon (Spotify's play/pause).
+    Light,
 }
 
 /// A rounded button with a drawn icon and optional text.
@@ -180,6 +215,16 @@ impl<'a> IconButton<'a> {
     }
     pub fn primary(mut self) -> Self {
         self.style = Style::Primary;
+        self
+    }
+    /// Icon only, no background. Gets brighter and a little bigger on hover.
+    pub fn plain(mut self) -> Self {
+        self.style = Style::Plain;
+        self
+    }
+    /// A white circle with a dark icon, like Spotify's play button. Use with `round()`.
+    pub fn light(mut self) -> Self {
+        self.style = Style::Light;
         self
     }
     pub fn danger(mut self) -> Self {
@@ -209,7 +254,10 @@ impl<'a> IconButton<'a> {
 impl Widget for IconButton<'_> {
     fn ui(self, ui: &mut Ui) -> Response {
         let font = FontId::proportional(14.0);
-        let padding = Vec2::new(if self.round { 0.0 } else { 10.0 }, 7.0);
+        let padding = match self.style {
+            Style::Plain => Vec2::splat(6.0),
+            _ => Vec2::new(if self.round { 0.0 } else { 10.0 }, 7.0),
+        };
         let galley = self.text.map(|t| ui.painter().layout_no_wrap(t.to_string(), font, TEXT));
 
         let mut size = Vec2::splat(self.icon_size) + padding * 2.0;
@@ -227,12 +275,22 @@ impl Widget for IconButton<'_> {
 
         let hover = ui.ctx().animate_bool(response.id.with("hover"), self.enabled && response.hovered());
         let pressed = self.enabled && response.is_pointer_button_down_on();
-        let rect = if pressed { rect.shrink(1.5) } else { rect };
+        let full_rect = rect;
+        // Spotify-style buttons grow a little on hover; everything shrinks a little when pressed.
+        let grows = matches!(self.style, Style::Plain | Style::Light);
+        let scale = if pressed { 0.94 } else if grows { 1.0 + 0.06 * hover } else { 1.0 };
+        let rect = Rect::from_center_size(rect.center(), rect.size() * scale);
+        let icon_size = self.icon_size * scale;
 
         let (base, lit, icon_color) = match self.style {
             Style::Primary => (PINK, PINK.lerp_to_gamma(Color32::WHITE, 0.25), INK),
             Style::Danger => (RED.gamma_multiply(0.18), RED.gamma_multiply(0.36), RED.lerp_to_gamma(Color32::WHITE, 0.3)),
             Style::Ghost => (CARD, CARD_HOVER, if self.active { PINK } else { TEXT }),
+            Style::Light => (Color32::from_rgb(0xF2, 0xF0, 0xF3), Color32::WHITE, Color32::BLACK),
+            Style::Plain => {
+                let icon = if self.active { PINK } else { MUTED.lerp_to_gamma(Color32::WHITE, hover) };
+                (Color32::TRANSPARENT, Color32::TRANSPARENT, icon)
+            }
         };
         let mut background = base.lerp_to_gamma(lit, hover);
         let mut icon_color = icon_color;
@@ -249,15 +307,19 @@ impl Widget for IconButton<'_> {
             painter.rect_stroke(rect, radius, Stroke::new(1.0, glow), StrokeKind::Inside);
         }
 
-        let icon_rect = if self.round {
-            Rect::from_center_size(rect.center(), Vec2::splat(self.icon_size))
+        let icon_rect = if self.round || self.text.is_none() {
+            Rect::from_center_size(rect.center(), Vec2::splat(icon_size))
         } else {
             Rect::from_min_size(
-                Pos2::new(rect.left() + padding.x, rect.center().y - self.icon_size / 2.0),
-                Vec2::splat(self.icon_size),
+                Pos2::new(rect.left() + padding.x, rect.center().y - icon_size / 2.0),
+                Vec2::splat(icon_size),
             )
         };
         paint_icon(painter, icon_rect, self.icon, icon_color);
+        // Spotify marks an active shuffle/repeat with a small dot underneath.
+        if self.style == Style::Plain && self.active {
+            painter.circle_filled(Pos2::new(full_rect.center().x, full_rect.bottom() + 1.0), 2.0, PINK);
+        }
         if let Some(galley) = galley {
             let at = Pos2::new(icon_rect.right() + 7.0, rect.center().y - galley.size().y / 2.0);
             painter.galley(at, galley, icon_color);

@@ -313,38 +313,47 @@ impl ControlPanel {
         });
         ui.add_space(12.0);
 
-        // Controls: main transport in the middle-left, extras after, volume and loop on the right.
+        // Spotify-style transport, centered: shuffle, back, big play/pause, forward, loop.
         ui.horizontal(|ui| {
-            if ui.add(button(Icon::Previous).size(18.0)).on_hover_text("Back to the start").clicked() {
-                self.act(guild, Action::Replay);
-            }
-            let (icon, action, tip) =
-                if player.paused { (Icon::Play, Action::Resume, "Resume") } else { (Icon::Pause, Action::Pause, "Pause") };
-            if ui.add(button(icon).size(20.0).round().primary()).on_hover_text(tip).clicked() {
-                self.act(guild, action);
-            }
-            if ui.add(button(Icon::Next).size(18.0)).on_hover_text("Skip").clicked() {
-                self.act(guild, Action::Skip);
-            }
-            ui.add_space(14.0);
+            // Widths of the five buttons below plus spacing, so the row can be centered.
+            const ROW_WIDTH: f32 = 30.0 + 34.0 + 48.0 + 34.0 + 30.0 + 4.0 * 8.0 + 2.0 * 10.0;
+            ui.add_space(((ui.available_width() - ROW_WIDTH) / 2.0).max(0.0));
 
-            let shuffle = button(Icon::Shuffle).enabled(player.upcoming.len() > 1);
+            let shuffle = button(Icon::Shuffle).plain().size(18.0).enabled(player.upcoming.len() > 1);
             if ui.add(shuffle).on_hover_text("Shuffle the setlist").clicked() {
                 self.act(guild, Action::Shuffle);
             }
+            if ui.add(button(Icon::Previous).plain().size(22.0)).on_hover_text("Back to the start").clicked() {
+                self.act(guild, Action::Replay);
+            }
+            ui.add_space(10.0);
+            let (icon, action, tip) =
+                if player.paused { (Icon::Play, Action::Resume, "Play") } else { (Icon::Pause, Action::Pause, "Pause") };
+            if ui.add(button(icon).light().round().size(20.0)).on_hover_text(tip).clicked() {
+                self.act(guild, action);
+            }
+            ui.add_space(10.0);
+            if ui.add(button(Icon::Next).plain().size(22.0)).on_hover_text("Skip").clicked() {
+                self.act(guild, Action::Skip);
+            }
             let (loop_icon, next_mode, tip) = match player.loop_mode {
-                LoopMode::Off => (Icon::Loop, LoopMode::Queue, "Loop: off (click to loop the queue)"),
-                LoopMode::Queue => (Icon::Loop, LoopMode::Song, "Loop: queue (click to loop this song)"),
+                LoopMode::Off => (Icon::Loop, LoopMode::Queue, "Loop: off (click to loop the setlist)"),
+                LoopMode::Queue => (Icon::Loop, LoopMode::Song, "Loop: setlist (click to loop this song)"),
                 LoopMode::Song => (Icon::LoopOne, LoopMode::Off, "Loop: this song (click to turn off)"),
             };
             let looping = player.loop_mode != LoopMode::Off;
-            if ui.add(button(loop_icon).active(looping)).on_hover_text(tip).clicked() {
+            if ui.add(button(loop_icon).plain().size(18.0).active(looping)).on_hover_text(tip).clicked() {
                 self.act(guild, Action::Loop(next_mode));
             }
-            if ui.add(button(Icon::Stop)).on_hover_text("Stop and clear the setlist").clicked() {
+        });
+        ui.add_space(6.0);
+
+        // Less common controls on the left, volume on the right.
+        ui.horizontal(|ui| {
+            if ui.add(button(Icon::Stop).text("Stop")).on_hover_text("Stop and clear the setlist").clicked() {
                 self.act(guild, Action::Stop);
             }
-            if ui.add(button(Icon::Leave).danger()).on_hover_text("Leave the voice channel").clicked() {
+            if ui.add(button(Icon::Leave).text("Leave").danger()).on_hover_text("Leave the voice channel").clicked() {
                 self.act(guild, Action::Leave);
             }
 
