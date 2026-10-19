@@ -38,7 +38,7 @@ On first run it sets itself up, so the exe can be given to someone with nothing 
 3. Open the app, click **Settings**, paste the token and save (or edit `.env` by hand).
 4. Invite with scopes `bot` + `applications.commands` and permissions: View Channels, Send Messages,
    Embed Links, Connect, Speak.
-5. Run `run.bat`.
+5. Run `cargo run --release` (or the built `bocchi.exe`).
 
 ## Commands
 
@@ -73,6 +73,9 @@ src/
   util.rs        embeds, time formatting, progress bar
   commands/      playback, queue, general
 ```
+
+The app icon is `assets/icon.png` / `assets/icon.ico`. If those are missing, the build falls back to
+`assets/icon-default.*`.
 
 The title font is [RocknRoll One](https://github.com/fontworks-fonts/RocknRoll) (SIL Open Font License,
 see `assets/RocknRollOne-OFL.txt`), trimmed to basic Latin letters.

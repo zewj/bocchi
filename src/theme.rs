@@ -20,8 +20,9 @@ const PANEL: Color32 = Color32::from_rgb(0x1B, 0x17, 0x1F);
 pub const CARD: Color32 = Color32::from_rgb(0x25, 0x1F, 0x2A);
 pub const CARD_HOVER: Color32 = Color32::from_rgb(0x33, 0x2A, 0x38);
 
-/// The app icon picture (also shown next to the name in the window).
-pub const ICON_PNG: &[u8] = include_bytes!("../assets/icon.png");
+/// The app icon picture (also shown next to the name in the window). build.rs picks your own
+/// `assets/icon.png` if it exists, otherwise the default one.
+pub const ICON_PNG: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/app_icon.png"));
 
 /// RocknRoll One: a free rock-and-roll style display font, used for the "Bocchi" title.
 /// Trimmed to basic Latin letters (67 KB instead of 2.6 MB with all the Japanese glyphs).
@@ -77,7 +78,7 @@ pub fn apply(ctx: &egui::Context) {
     });
 }
 
-/// The window icon: `assets/icon.png`, built into the program.
+/// The window icon (see `ICON_PNG`), built into the program.
 /// Falls back to the drawn hair-clip tile if the picture can't be read.
 pub fn icon() -> IconData {
     match image::load_from_memory(ICON_PNG) {

@@ -1,6 +1,6 @@
 //! One log for the whole app: shown in the window, written to a file,
 //! and printed to the console (when there is one).
-//! The file is `bocchi.log`.
+//! The file is `bocchi.log`, next to the exe.
 
 use std::collections::VecDeque;
 use std::io::Write;
@@ -18,7 +18,8 @@ fn lines() -> &'static Mutex<VecDeque<String>> {
 pub fn write(message: String) {
     let line = format!("[{}] {message}", time_now());
     println!("{line}");
-    if let Ok(mut file) = std::fs::OpenOptions::new().create(true).append(true).open(FILE) {
+    let path = crate::setup::exe_dir().join(FILE);
+    if let Ok(mut file) = std::fs::OpenOptions::new().create(true).append(true).open(path) {
         let _ = writeln!(file, "{line}");
     }
     let mut lines = lines().lock().unwrap();

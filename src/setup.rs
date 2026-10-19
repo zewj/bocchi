@@ -11,13 +11,17 @@ use std::path::{Path, PathBuf};
 const YTDLP_URL: &str = "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe";
 const DENO_URL: &str = "https://github.com/denoland/deno/releases/latest/download/deno-x86_64-pc-windows-msvc.zip";
 
-/// `tools` next to the exe.
-pub fn tools_dir() -> PathBuf {
+/// The folder the exe is in.
+pub fn exe_dir() -> PathBuf {
     std::env::current_exe()
         .ok()
         .and_then(|exe| exe.parent().map(Path::to_path_buf))
         .unwrap_or_else(|| PathBuf::from("."))
-        .join("tools")
+}
+
+/// `tools` next to the exe.
+pub fn tools_dir() -> PathBuf {
+    exe_dir().join("tools")
 }
 
 /// Puts the tools folder first on PATH, so our yt-dlp is used and it can find our Deno.

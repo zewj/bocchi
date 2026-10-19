@@ -1,8 +1,16 @@
 //! Bot settings, stored in `.env` next to the program.
 
-use std::path::Path;
+use std::path::PathBuf;
 
 const FILE: &str = ".env";
+
+/// Where `.env` lives: next to the exe if there's one there, else in the current folder
+/// (e.g. the project folder during `cargo run`). New files go next to the exe.
+fn path() -> PathBuf {
+    let next_to_exe = crate::setup::exe_dir().join(FILE);
+    let current_folder = PathBuf::from(FILE);
+    if !next_to_exe.exists() && current_folder.exists() { current_folder } else { next_to_exe }
+}
 
 #[derive(Clone, Default)]
 pub struct Config {
@@ -17,7 +25,7 @@ pub struct Config {
 impl Config {
     pub fn load() -> Self {
         let mut config = Config { prefix: "!".into(), autostart: true, ..Default::default() };
-        if let Ok(values) = dotenvy::from_path_iter(Path::new(FILE)) {
+        if let Ok(values) = dotenvy::from_path_iter(path()) {
             for (key, value) in values.flatten() {
                 match key.as_str() {
                     "DISCORD_TOKEN" => config.token = value,
@@ -36,15 +44,16 @@ impl Config {
     }
 
     pub fn save(&self) -> std::io::Result<()> {
-        let lines = [
+        let mut lines = vec![
             format!("DISCORD_TOKEN={}", self.token.trim()),
             format!("PREFIX={}", self.prefix.trim()),
-            "# Optional: your test server ID so slash commands show up instantly".to_string(),
-            format!("GUILD_ID={}", self.guild_id.trim()),
             "# Start the bot when the control panel opens".to_string(),
             format!("AUTOSTART={}", self.autostart),
         ];
-        std::fs::write(FILE, lines.join("\n") + "\n")
+        if !self.guild_id.trim().is_empty() {
+            lines.push(format!("GUILD_ID={}", self.guild_id.trim()));
+        }
+        std::fs::write(path(), lines.join("\n") + "\n")
     }
 
     pub fn has_token(&self) -> bool {
