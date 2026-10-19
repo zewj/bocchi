@@ -87,6 +87,10 @@ pub struct Shared {
 }
 
 impl Shared {
+    pub fn new(http: Arc<Http>, songbird: Arc<Songbird>, guilds: Arc<Mutex<HashMap<GuildId, GuildState>>>) -> Self {
+        Self { http, songbird, guilds }
+    }
+
     pub async fn from_ctx(ctx: Context<'_>) -> Self {
         Self {
             http: ctx.serenity_context().http.clone(),
@@ -141,6 +145,7 @@ impl EventHandler for SongStarted {
         if loop_mode == LoopMode::Song {
             let _ = handle.enable_loop();
         }
+        crate::log!("Now playing: {}", info(handle).title);
         if let Some(channel) = channel {
             let embed = util::song_embed("🎶 Now playing", &info(handle));
             let _ = channel.send_message(&self.shared.http, CreateMessage::new().embed(embed)).await;
@@ -205,7 +210,7 @@ impl EventHandler for SongFailed {
             PlayMode::Errored(e) => explain(&e.to_string()),
             _ => "unknown error".to_string(),
         };
-        eprintln!("[player] couldn't play {} ({}): {reason}", song.title, song.url);
+        crate::log!("Couldn't play {} ({}): {reason}", song.title, song.url);
 
         if let Some(channel) = self.shared.state(self.guild, |s| s.text_channel) {
             let text = format!("⚠️ Couldn't play **{}**, skipping it.
@@ -221,8 +226,7 @@ impl EventHandler for SongFailed {
 fn explain(error: &str) -> String {
     let lower = error.to_lowercase();
     if lower.contains("no suitable format reader") || lower.contains("end of stream") {
-        "yt-dlp couldn't download it. It may be private, age-restricted or region-locked,          or yt-dlp needs updating (restart the bot, it updates on start)."
-            .to_string()
+        "yt-dlp couldn't download it. It may be private, age-restricted or region-locked.".to_string()
     } else if lower.contains("couldn't start yt-dlp") {
         "yt-dlp isn't installed or isn't on PATH.".to_string()
     } else {

@@ -6,12 +6,20 @@ A Discord music bot written in Rust ([poise](https://github.com/serenity-rs/pois
 
 Every command works with the prefix (default `!`) and as a slash command.
 
+## Control panel
+
+Running `bocchi.exe` opens a window to start/stop the bot, edit settings (saved to `.env`), and control
+every server it's playing in: now playing with progress, pause/skip/replay/shuffle/stop/leave, volume, loop, add
+songs, and the queue with remove buttons. The log is shown at the bottom and saved to `bocchi.log`.
+
+To run without a window (e.g. as a service): `bocchi.exe --headless`.
+
 ## Setup
 
 1. Needs `yt-dlp` on PATH. The bot updates it on start and every hour after (YouTube blocks old versions).
 2. In the [developer portal](https://discord.com/developers/applications), make a **new** application:
    - **Bot** tab: copy the token, turn on **Message Content Intent**
-3. Put the token in `.env` as `DISCORD_TOKEN=...`. Optional: `GUILD_ID` (instant slash commands) and `PREFIX`.
+3. Open the app, click **Settings**, paste the token and save (or edit `.env` by hand).
 4. Invite with scopes `bot` + `applications.commands` and permissions: View Channels, Send Messages,
    Embed Links, Connect, Speak.
 5. Run `run.bat`.
@@ -31,7 +39,13 @@ Spotify links can't be played directly (search the song name instead). Playlists
 
 ```
 src/
-  main.rs        startup, error replies
+  main.rs        startup (window or --headless), hourly yt-dlp updates
+  gui.rs         the control panel window
+  control.rs     what the panel shows and its button actions
+  bot.rs         starting / stopping the Discord bot
+  config.rs      settings in .env
+  log.rs         the shared log (window + file)
+  process.rs     starting yt-dlp without console windows
   data.rs        shared state: per-server volume, loop mode, song info
   source.rs      links / searches / playlists -> songs (yt-dlp)
   player.rs      joining voice, the queue, "now playing", auto-leave when idle

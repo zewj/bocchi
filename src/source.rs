@@ -1,11 +1,13 @@
-//! Turns what the user typed (a link or a search) into songs, using yt-dlp.
+//! Turns what the user typed (a link or a search) into songs, and streams them, using yt-dlp.
 
 use crate::data::{Error, TrackInfo};
+use crate::process;
 use async_trait::async_trait;
 use poise::serenity_prelude::UserId;
+use serde_json::Value;
 use songbird::input::core::io::{MediaSource, ReadOnlySource};
-use songbird::input::{AudioStream, AudioStreamError, AuxMetadata, ChildContainer, Compose, Input, YoutubeDl};
-use std::process::{Command, Stdio};
+use songbird::input::{AudioStream, AudioStreamError, AuxMetadata, ChildContainer, Compose, Input};
+use std::process::Stdio;
 use std::time::Duration;
 
 /// Playlists longer than this are cut off.
@@ -20,7 +22,7 @@ fn is_playlist(url: &str) -> bool {
 }
 
 /// Finds the song(s) for a link or search. Playlists give many songs.
-pub async fn resolve(http: &reqwest::Client, query: &str, requester: UserId) -> Result<Vec<TrackInfo>, Error> {
+pub async fn resolve(query: &str, requester: UserId) -> Result<Vec<TrackInfo>, Error> {
     let query = query.trim();
     if query.contains("spotify.com") {
         return Err("Spotify links can't be played directly. Search the song name instead.".into());
@@ -29,34 +31,26 @@ pub async fn resolve(http: &reqwest::Client, query: &str, requester: UserId) -> 
         return playlist(query, requester).await;
     }
 
-    let mut source = if is_url(query) {
-        YoutubeDl::new(http.clone(), query.to_string())
-    } else {
-        YoutubeDl::new_search(http.clone(), query.to_string())
-    };
-    let meta = source
-        .aux_metadata()
+    // A search becomes "the first YouTube result".
+    let target = if is_url(query) { query.to_string() } else { format!("ytsearch1:{query}") };
+    let json = ytdlp_json(&["--dump-json", "--no-playlist", &target])
         .await
         .map_err(|_| format!("Couldn't find anything for `{query}`."))?;
 
     Ok(vec![TrackInfo {
-        title: meta.title.unwrap_or_else(|| "Unknown title".into()),
-        url: meta.source_url.unwrap_or_else(|| query.to_string()),
-        duration: meta.duration,
-        thumbnail: meta.thumbnail,
+        title: json["title"].as_str().unwrap_or("Unknown title").to_string(),
+        url: json["webpage_url"].as_str().unwrap_or(query).to_string(),
+        duration: json["duration"].as_f64().map(Duration::from_secs_f64),
+        thumbnail: json["thumbnail"].as_str().map(str::to_string),
         requester,
     }])
 }
 
 /// Lists a playlist's songs without downloading anything ("flat" mode is fast).
 async fn playlist(url: &str, requester: UserId) -> Result<Vec<TrackInfo>, Error> {
-    let output = tokio::process::Command::new("yt-dlp")
-        .args(["--flat-playlist", "--dump-single-json", "--no-warnings", url])
-        .output()
+    let json = ytdlp_json(&["--flat-playlist", "--dump-single-json", url])
         .await
-        .map_err(|_| "yt-dlp isn't installed or isn't on PATH.")?;
-    let json: serde_json::Value =
-        serde_json::from_slice(&output.stdout).map_err(|_| "Couldn't read that playlist.")?;
+        .map_err(|_| "Couldn't read that playlist.")?;
     let entries = json["entries"].as_array().ok_or("That playlist is empty or private.")?;
 
     let songs: Vec<TrackInfo> = entries
@@ -84,6 +78,19 @@ async fn playlist(url: &str, requester: UserId) -> Result<Vec<TrackInfo>, Error>
     Ok(songs)
 }
 
+/// Runs yt-dlp and reads the JSON it prints. With searches it prints one line per result.
+async fn ytdlp_json(args: &[&str]) -> Result<Value, Error> {
+    let output = process::async_command("yt-dlp")
+        .args(["--no-warnings", "--format", "bestaudio/best"])
+        .args(args)
+        .stdin(Stdio::null())
+        .output()
+        .await
+        .map_err(|_| "yt-dlp isn't installed or isn't on PATH.")?;
+    let first_line = output.stdout.split(|b| *b == b'\n').find(|l| !l.is_empty()).ok_or("no results")?;
+    Ok(serde_json::from_slice(first_line)?)
+}
+
 // ============================== Audio stream ==============================
 
 /// Streams a song by letting yt-dlp download it and pipe the audio to us.
@@ -107,7 +114,7 @@ impl YtDlpStream {
 #[async_trait]
 impl Compose for YtDlpStream {
     fn create(&mut self) -> Result<AudioStream<Box<dyn MediaSource>>, AudioStreamError> {
-        let child = Command::new("yt-dlp")
+        let child = process::command("yt-dlp")
             .args(["--quiet", "--no-warnings", "--no-playlist"])
             .args(["--format", "bestaudio[acodec=opus]/bestaudio/best"])
             .args(["--output", "-", &self.url])

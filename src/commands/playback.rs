@@ -34,7 +34,7 @@ async fn add_songs(ctx: Context<'_>, query: String, next: bool) -> Result<(), Er
 
     let call = player::join(ctx).await?;
     player::remember_text_channel(ctx.data(), guild, ctx.channel_id());
-    let songs = source::resolve(&ctx.data().http, &query, ctx.author().id).await?;
+    let songs = source::resolve(&query, ctx.author().id).await?;
     let shared = Shared::from_ctx(ctx).await;
 
     let was_empty = call.lock().await.queue().is_empty();

@@ -8,18 +8,14 @@ use std::time::Duration;
 pub type Error = Box<dyn std::error::Error + Send + Sync>;
 pub type Context<'a> = poise::Context<'a, Data, Error>;
 
+pub type Guilds = Arc<Mutex<HashMap<GuildId, GuildState>>>;
+
 pub struct Data {
-    /// Used by yt-dlp streams to download audio.
-    pub http: reqwest::Client,
-    /// Per-server player settings. Shared with the track event handlers, hence the Arc.
-    pub guilds: Arc<Mutex<HashMap<GuildId, GuildState>>>,
+    /// Per-server player settings. Shared with track events and the control panel, hence the Arc.
+    pub guilds: Guilds,
 }
 
 impl Data {
-    pub fn new() -> Self {
-        Self { http: reqwest::Client::new(), guilds: Arc::new(Mutex::new(HashMap::new())) }
-    }
-
     /// Runs `f` on a server's settings, creating defaults the first time.
     pub fn with_guild<T>(&self, guild: GuildId, f: impl FnOnce(&mut GuildState) -> T) -> T {
         f(self.guilds.lock().unwrap().entry(guild).or_default())
@@ -39,6 +35,7 @@ pub enum LoopMode {
     Queue,
 }
 
+#[derive(Clone)]
 pub struct GuildState {
     /// 1.0 = 100%.
     pub volume: f32,
