@@ -59,4 +59,4 @@ src/
 ```
 
 The title font is [RocknRoll One](https://github.com/fontworks-fonts/RocknRoll) (SIL Open Font License,
-see `assets/RocknRollOne-OFL.txt`).
+see `assets/RocknRollOne-OFL.txt`), trimmed to basic Latin letters.

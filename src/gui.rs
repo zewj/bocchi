@@ -20,6 +20,8 @@ const REFRESH: Duration = Duration::from_millis(500);
 const ART_SIZE: Vec2 = Vec2::new(208.0, 117.0);
 const SMALL_ART: Vec2 = Vec2::new(64.0, 36.0);
 const ROW_HEIGHT: f32 = 46.0;
+/// Loaded album art is cleared this often; covers on screen just load again.
+const IMAGE_CACHE_LIFETIME: Duration = Duration::from_secs(120);
 
 pub fn run(runtime: Handle) -> Result<(), Error> {
     let options = eframe::NativeOptions {
@@ -59,6 +61,7 @@ struct ControlPanel {
     add_query: String,
     /// While the volume slider is being dragged, show this instead of the last snapshot.
     volume_drag: Option<f32>,
+    images_cleared: std::time::Instant,
 }
 
 impl ControlPanel {
@@ -76,6 +79,7 @@ impl ControlPanel {
             show_token: false,
             add_query: String::new(),
             volume_drag: None,
+            images_cleared: std::time::Instant::now(),
         };
         panel.start_refreshing();
         if panel.config.has_token() && panel.config.autostart {
@@ -140,6 +144,10 @@ impl eframe::App for ControlPanel {
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         // Song progress and the log change on their own, so keep redrawing.
         ui.ctx().request_repaint_after(REFRESH);
+        if self.images_cleared.elapsed() > IMAGE_CACHE_LIFETIME {
+            ui.ctx().forget_all_images();
+            self.images_cleared = std::time::Instant::now();
+        }
 
         let status = self.status.lock().unwrap().clone();
         let players = self.players.lock().unwrap().clone();

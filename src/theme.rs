@@ -24,7 +24,8 @@ pub const CARD_HOVER: Color32 = Color32::from_rgb(0x33, 0x2A, 0x38);
 pub const ICON_PNG: &[u8] = include_bytes!("../assets/icon.png");
 
 /// RocknRoll One: a free rock-and-roll style display font, used for the "Bocchi" title.
-const TITLE_FONT: &[u8] = include_bytes!("../assets/RocknRollOne-Regular.ttf");
+/// Trimmed to basic Latin letters (67 KB instead of 2.6 MB with all the Japanese glyphs).
+const TITLE_FONT: &[u8] = include_bytes!("../assets/RocknRollOne-Latin.ttf");
 
 /// The font family for titles, e.g. `RichText::new("Bocchi").family(theme::title_font())`.
 pub fn title_font() -> FontFamily {

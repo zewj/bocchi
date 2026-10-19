@@ -32,7 +32,8 @@ use std::time::Duration;
 const YTDLP_UPDATE_EVERY: Duration = Duration::from_secs(60 * 60);
 
 fn main() -> Result<(), Error> {
-    let runtime = tokio::runtime::Runtime::new()?;
+    // Two worker threads are plenty for a music bot (the default is one per CPU core).
+    let runtime = tokio::runtime::Builder::new_multi_thread().worker_threads(2).enable_all().build()?;
     let _inside_runtime = runtime.enter();
     keep_ytdlp_updated();
 

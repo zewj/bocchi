@@ -2,3 +2,4 @@
 .env
 bocchi.log
 *.log
+/target-lite
