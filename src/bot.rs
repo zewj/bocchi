@@ -92,6 +92,11 @@ pub async fn start(config: Config, guilds: Guilds, status: StatusLock) -> Result
                 ctx.set_activity(Some(serenity::ActivityData::playing(format!("guitar in the closet 🎸 {prefix}play"))));
                 crate::emojis::setup(&ctx.http).await;
                 log!("Online as {} in {} server(s)", ready.user.name, ready.guilds.len());
+                // Exactly the permissions Bocchi uses (see the README).
+                log!(
+                    "Invite link: https://discord.com/oauth2/authorize?client_id={}&permissions=3427328&scope=bot+applications.commands",
+                    ready.application.id
+                );
                 set(&ready_status, Status::Online { name: ready.user.name.clone(), since: Instant::now() });
                 Ok(Data { guilds: data_guilds })
             })

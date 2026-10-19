@@ -24,11 +24,15 @@ compiled in at all, so it uses much less memory. It shows the log live and stops
 cargo build --release --no-default-features
 ```
 
-Put a `.env` with `DISCORD_TOKEN=...` next to the exe.
+On first run it sets itself up, so the exe can be given to someone with nothing installed:
+- if yt-dlp or Deno aren't installed, it downloads them into a `tools` folder next to the exe
+- if there's no token, it explains how to make a bot and asks for the token (saved to `.env`)
+- once online, the log shows the invite link with exactly the permissions Bocchi needs
 
 ## Setup
 
-1. Needs `yt-dlp` on PATH. The bot updates it on start and every hour after (YouTube blocks old versions).
+1. yt-dlp and Deno: downloaded automatically into `tools/` if they aren't installed. yt-dlp is updated on start
+   and every hour after (YouTube blocks old versions).
 2. In the [developer portal](https://discord.com/developers/applications), make a **new** application:
    - **Bot** tab: copy the token, turn on **Message Content Intent**
 3. Open the app, click **Settings**, paste the token and save (or edit `.env` by hand).
@@ -60,6 +64,7 @@ src/
   config.rs      settings in .env
   log.rs         the shared log (window + file)
   process.rs     starting yt-dlp without console windows
+  setup.rs       first-run setup: downloads yt-dlp/Deno, asks for the token
   data.rs        shared state: per-server volume, loop mode, song info
   source.rs      links / searches / playlists -> songs (yt-dlp)
   spotify.rs     Spotify links via the public embed page

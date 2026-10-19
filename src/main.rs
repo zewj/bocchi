@@ -27,6 +27,7 @@ mod gui;
 mod log;
 mod player;
 mod process;
+mod setup;
 mod source;
 mod spotify;
 #[cfg(feature = "gui")]
@@ -42,25 +43,35 @@ use std::time::Duration;
 const YTDLP_UPDATE_EVERY: Duration = Duration::from_secs(60 * 60);
 
 fn main() -> Result<(), Error> {
+    // Our own yt-dlp/Deno (downloaded on first run) take priority. Must happen before threads start.
+    setup::add_tools_to_path();
     // Two worker threads are plenty for a music bot (the default is one per CPU core).
     let runtime = tokio::runtime::Builder::new_multi_thread().worker_threads(2).enable_all().build()?;
     let _inside_runtime = runtime.enter();
-    keep_ytdlp_updated();
 
     #[cfg(feature = "gui")]
     if !std::env::args().any(|arg| arg == "--headless") {
+        // The window opens right away; missing tools download in the background (see the log).
+        tokio::spawn(async {
+            if let Err(e) = setup::ensure_tools().await {
+                log!("Couldn't download yt-dlp/Deno: {e}");
+            }
+            keep_ytdlp_updated();
+        });
         return gui::run(runtime.handle().clone());
     }
-    runtime.block_on(headless())
+
+    // Console: get the token and the tools first, then go online.
+    let config = setup::ask_for_token(config::Config::load())?;
+    runtime.block_on(async {
+        setup::ensure_tools().await?;
+        keep_ytdlp_updated();
+        headless(config).await
+    })
 }
 
 /// Runs the bot without a window until Ctrl+C.
-async fn headless() -> Result<(), Error> {
-    let config = config::Config::load();
-    if !config.has_token() {
-        log!("No bot token. Put DISCORD_TOKEN=... in a .env file next to this program.");
-        return Err("missing DISCORD_TOKEN".into());
-    }
+async fn headless(config: config::Config) -> Result<(), Error> {
     log!("Bocchi (console) starting. Press Ctrl+C to stop.");
     let status = std::sync::Arc::new(std::sync::Mutex::new(bot::Status::Offline));
     let bot = bot::start(config, Default::default(), status.clone()).await?;
