@@ -317,6 +317,9 @@ impl ControlPanel {
         ui.horizontal(|ui| {
             // Widths of the five buttons below plus spacing, so the row can be centered.
             const ROW_WIDTH: f32 = 30.0 + 34.0 + 48.0 + 34.0 + 30.0 + 4.0 * 8.0 + 2.0 * 10.0;
+            // egui centers each button on the row's height so far, so give the row the play
+            // button's full height up front; otherwise the buttons before it sit too high.
+            ui.set_min_height(48.0);
             ui.add_space(((ui.available_width() - ROW_WIDTH) / 2.0).max(0.0));
 
             let shuffle = button(Icon::Shuffle).plain().size(18.0).enabled(player.upcoming.len() > 1);
