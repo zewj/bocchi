@@ -15,6 +15,7 @@ use songbird::SerenityInit;
 #[tokio::main]
 async fn main() -> Result<(), Error> {
     dotenvy::dotenv().ok();
+    update_ytdlp();
     let token = std::env::var("DISCORD_TOKEN").map_err(|_| "Set DISCORD_TOKEN in .env")?;
     let prefix = std::env::var("PREFIX").unwrap_or_else(|_| "!".into());
     // Optional: register slash commands in one server so they show up instantly.
@@ -61,6 +62,21 @@ async fn main() -> Result<(), Error> {
         .start()
         .await?;
     Ok(())
+}
+
+/// YouTube keeps changing, and old yt-dlp versions get blocked (HTTP 403).
+/// Updating on every start keeps songs playing. Runs in the background so startup isn't slowed.
+fn update_ytdlp() {
+    std::thread::spawn(|| {
+        match std::process::Command::new("yt-dlp").arg("-U").output() {
+            Ok(out) => {
+                let text = String::from_utf8_lossy(&out.stdout);
+                let last = text.lines().last().unwrap_or("").trim();
+                println!("yt-dlp: {last}");
+            }
+            Err(_) => eprintln!("yt-dlp wasn't found on PATH. Music won't play until it's installed."),
+        }
+    });
 }
 
 /// Turns errors into friendly replies instead of silent failures.

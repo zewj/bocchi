@@ -5,8 +5,7 @@ use crate::util;
 use async_trait::async_trait;
 use poise::serenity_prelude::{self as serenity, ChannelId, CreateMessage, GuildId, Http};
 use songbird::events::{Event, EventContext, EventHandler, TrackEvent};
-use songbird::input::YoutubeDl;
-use songbird::tracks::{Track, TrackHandle};
+use songbird::tracks::{PlayMode, Track, TrackHandle};
 use songbird::{Call, Songbird};
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -83,7 +82,6 @@ pub fn info(handle: &TrackHandle) -> Arc<TrackInfo> {
 #[derive(Clone)]
 pub struct Shared {
     pub http: Arc<Http>,
-    pub client: reqwest::Client,
     pub songbird: Arc<Songbird>,
     pub guilds: Arc<Mutex<HashMap<GuildId, GuildState>>>,
 }
@@ -92,7 +90,6 @@ impl Shared {
     pub async fn from_ctx(ctx: Context<'_>) -> Self {
         Self {
             http: ctx.serenity_context().http.clone(),
-            client: ctx.data().http.clone(),
             songbird: manager(ctx).await,
             guilds: ctx.data().guilds.clone(),
         }
@@ -105,8 +102,8 @@ impl Shared {
 
 /// Adds a song to the end of the queue. It starts right away if nothing is playing.
 pub async fn enqueue(shared: &Shared, guild: GuildId, call: &CallLock, song: TrackInfo) -> TrackHandle {
-    let input = YoutubeDl::new(shared.client.clone(), song.url.clone());
-    let track = Track::new_with_data(input.into(), Arc::new(song));
+    let input = crate::source::YtDlpStream::input(song.url.clone());
+    let track = Track::new_with_data(input, Arc::new(song));
     let volume = shared.state(guild, |s| s.volume);
 
     let handle = call.lock().await.enqueue(track).await;
@@ -202,12 +199,33 @@ struct SongFailed {
 impl EventHandler for SongFailed {
     async fn act(&self, ctx: &EventContext<'_>) -> Option<Event> {
         let EventContext::Track(tracks) = ctx else { return None };
-        let (_, handle) = tracks.first()?;
+        let (state, handle) = tracks.first()?;
+        let song = info(handle);
+        let reason = match &state.playing {
+            PlayMode::Errored(e) => explain(&e.to_string()),
+            _ => "unknown error".to_string(),
+        };
+        eprintln!("[player] couldn't play {} ({}): {reason}", song.title, song.url);
+
         if let Some(channel) = self.shared.state(self.guild, |s| s.text_channel) {
-            let text = format!("⚠️ Couldn't play **{}**, skipping it.", info(handle).title);
+            let text = format!("⚠️ Couldn't play **{}**, skipping it.
+-# {reason}", song.title);
             let embed = util::embed().color(util::FAILURE).description(text);
             let _ = channel.send_message(&self.shared.http, CreateMessage::new().embed(embed)).await;
         }
         None
+    }
+}
+
+/// Turns a raw playback error into something a person can act on.
+fn explain(error: &str) -> String {
+    let lower = error.to_lowercase();
+    if lower.contains("no suitable format reader") || lower.contains("end of stream") {
+        "yt-dlp couldn't download it. It may be private, age-restricted or region-locked,          or yt-dlp needs updating (restart the bot, it updates on start)."
+            .to_string()
+    } else if lower.contains("couldn't start yt-dlp") {
+        "yt-dlp isn't installed or isn't on PATH.".to_string()
+    } else {
+        error.to_string()
     }
 }

@@ -1,8 +1,11 @@
 //! Turns what the user typed (a link or a search) into songs, using yt-dlp.
 
 use crate::data::{Error, TrackInfo};
+use async_trait::async_trait;
 use poise::serenity_prelude::UserId;
-use songbird::input::{Compose, YoutubeDl};
+use songbird::input::core::io::{MediaSource, ReadOnlySource};
+use songbird::input::{AudioStream, AudioStreamError, AuxMetadata, ChildContainer, Compose, Input, YoutubeDl};
+use std::process::{Command, Stdio};
 use std::time::Duration;
 
 /// Playlists longer than this are cut off.
@@ -79,4 +82,51 @@ async fn playlist(url: &str, requester: UserId) -> Result<Vec<TrackInfo>, Error>
         return Err("That playlist is empty or private.".into());
     }
     Ok(songs)
+}
+
+// ============================== Audio stream ==============================
+
+/// Streams a song by letting yt-dlp download it and pipe the audio to us.
+///
+/// songbird's built-in YoutubeDl source downloads the audio itself, and YouTube answers that
+/// with "403 Forbidden". yt-dlp's own downloader knows how to get the audio, so we use it.
+pub struct YtDlpStream {
+    url: String,
+}
+
+impl YtDlpStream {
+    pub fn input(url: String) -> Input {
+        // Lazy: yt-dlp only starts when the song is about to play (and again for seeking back).
+        Input::Lazy(Box::new(Self { url }))
+    }
+}
+
+#[async_trait]
+impl Compose for YtDlpStream {
+    fn create(&mut self) -> Result<AudioStream<Box<dyn MediaSource>>, AudioStreamError> {
+        let child = Command::new("yt-dlp")
+            .args(["--quiet", "--no-warnings", "--no-playlist"])
+            .args(["--format", "bestaudio[acodec=opus]/bestaudio/best"])
+            .args(["--output", "-", &self.url])
+            .stdin(Stdio::null())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::null())
+            .spawn()
+            .map_err(|e| AudioStreamError::Fail(format!("couldn't start yt-dlp: {e}").into()))?;
+        let source = ReadOnlySource::new(ChildContainer::from(child));
+        Ok(AudioStream { input: Box::new(source) as Box<dyn MediaSource> })
+    }
+
+    async fn create_async(&mut self) -> Result<AudioStream<Box<dyn MediaSource>>, AudioStreamError> {
+        Err(AudioStreamError::Unsupported)
+    }
+
+    fn should_create_async(&self) -> bool {
+        false
+    }
+
+    async fn aux_metadata(&mut self) -> Result<AuxMetadata, AudioStreamError> {
+        // We already looked the song up in `resolve`.
+        Err(AudioStreamError::Unsupported)
+    }
 }
