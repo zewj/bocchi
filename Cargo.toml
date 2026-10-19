@@ -1,0 +1,15 @@
+[package]
+name = "bocchi"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+async-trait = "0.1.92"
+dotenvy = "0.15"
+poise = "0.6"
+rand = "0.9"
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }
+serde_json = "1.0.154"
+songbird = { version = "0.6", features = ["builtin-queue"] }
+symphonia = { version = "0.5", features = ["aac", "isomp4", "mkv", "mp3", "ogg", "pcm", "wav", "flac"] }
+tokio = { version = "1.53.3", features = ["macros", "rt-multi-thread"] }
