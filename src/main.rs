@@ -3,25 +3,35 @@
 //!
 //! Run normally for the control panel window, or with `--headless` to run without a window
 //! (the log then goes to bocchi.log).
+//!
+//! The console-only version leaves the window out entirely, so it uses far less memory:
+//!   cargo build --release --no-default-features
+//! It prints the log live and stops with Ctrl+C.
 
-// No console window behind the control panel in release builds.
-#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+// No console window behind the control panel in release builds (the console version keeps it).
+#![cfg_attr(all(not(debug_assertions), feature = "gui"), windows_subsystem = "windows")]
+// Some details (bot status, settings saving) are only read by the control panel.
+#![cfg_attr(not(feature = "gui"), allow(dead_code))]
 
 mod bot;
 mod commands;
 mod config;
+#[cfg(feature = "gui")]
 mod control;
 mod data;
 mod discord_ui;
 mod emojis;
 mod events;
+#[cfg(feature = "gui")]
 mod gui;
 mod log;
 mod player;
 mod process;
 mod source;
 mod spotify;
+#[cfg(feature = "gui")]
 mod theme;
+#[cfg(feature = "gui")]
 mod widgets;
 mod util;
 
@@ -37,18 +47,37 @@ fn main() -> Result<(), Error> {
     let _inside_runtime = runtime.enter();
     keep_ytdlp_updated();
 
-    if std::env::args().any(|arg| arg == "--headless") {
-        runtime.block_on(headless())
-    } else {
-        gui::run(runtime.handle().clone())
+    #[cfg(feature = "gui")]
+    if !std::env::args().any(|arg| arg == "--headless") {
+        return gui::run(runtime.handle().clone());
     }
+    runtime.block_on(headless())
 }
 
-/// Runs the bot without a window until it's stopped.
+/// Runs the bot without a window until Ctrl+C.
 async fn headless() -> Result<(), Error> {
+    let config = config::Config::load();
+    if !config.has_token() {
+        log!("No bot token. Put DISCORD_TOKEN=... in a .env file next to this program.");
+        return Err("missing DISCORD_TOKEN".into());
+    }
+    log!("Bocchi (console) starting. Press Ctrl+C to stop.");
     let status = std::sync::Arc::new(std::sync::Mutex::new(bot::Status::Offline));
-    let bot = bot::start(config::Config::load(), Default::default(), status).await?;
-    tokio::signal::ctrl_c().await?;
+    let bot = bot::start(config, Default::default(), status.clone()).await?;
+
+    // Run until Ctrl+C, or until Discord disconnects us for good (e.g. a bad token).
+    let mut check = tokio::time::interval(Duration::from_secs(1));
+    loop {
+        tokio::select! {
+            _ = tokio::signal::ctrl_c() => break,
+            _ = check.tick() => {
+                if let bot::Status::Failed(reason) = &*status.lock().unwrap() {
+                    return Err(reason.clone().into());
+                }
+            }
+        }
+    }
+    log!("Stopping...");
     bot.stop().await;
     Ok(())
 }

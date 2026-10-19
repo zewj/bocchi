@@ -15,6 +15,17 @@ move up/down/remove buttons. The log is shown at the bottom and saved to `bocchi
 
 To run without a window (e.g. as a service): `bocchi.exe --headless`.
 
+## Console-only build
+
+For a machine that just hosts the bot, build without the control panel. The window code isn't
+compiled in at all, so it uses much less memory. It shows the log live and stops with Ctrl+C:
+
+```
+cargo build --release --no-default-features
+```
+
+Put a `.env` with `DISCORD_TOKEN=...` next to the exe.
+
 ## Setup
 
 1. Needs `yt-dlp` on PATH. The bot updates it on start and every hour after (YouTube blocks old versions).

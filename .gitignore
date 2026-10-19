@@ -3,3 +3,4 @@
 bocchi.log
 *.log
 /target-lite
+/target-cli

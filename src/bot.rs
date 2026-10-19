@@ -120,7 +120,7 @@ pub async fn start(config: Config, guilds: Guilds, status: StatusLock) -> Result
             Ok(()) => set(&status, Status::Offline),
             Err(e) => {
                 let reason = match e.to_string() {
-                    text if text.contains("Authentication") || text.contains("401") => "Discord rejected the token. Check it in Settings.".to_string(),
+                    text if text.contains("Authentication") || text.contains("401") => "Discord rejected the token. Check it in Settings (or DISCORD_TOKEN in .env).".to_string(),
                     text if text.contains("Disallowed") => {
                         "Turn on Message Content Intent in the developer portal (Bot tab).".to_string()
                     }
