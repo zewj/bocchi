@@ -36,8 +36,15 @@ On first run it sets itself up, so the exe can be given to someone with nothing 
 2. In the [developer portal](https://discord.com/developers/applications), make a **new** application:
    - **Bot** tab: copy the token, turn on **Message Content Intent**
 3. Open the app, click **Settings**, paste the token and save (or edit `.env` by hand).
-4. Invite with scopes `bot` + `applications.commands` and permissions: View Channels, Send Messages,
-   Embed Links, Connect, Speak.
+4. Invite her with the link she prints in the log once she's online. It includes everything below.
+   If you make your own invite link (or use the developer portal's **Installation** tab), make sure it has:
+   - **Scopes:** `bot` **and** `applications.commands`. Without `applications.commands` the slash
+     commands (`/play` and so on) don't show up at all.
+   - **Permissions:** View Channels, Send Messages, Embed Links, Use External Emojis (for her button
+     icons), Connect, Speak. She doesn't need Administrator.
+
+   Members also need the **Use Application Commands** permission to use slash commands. Discord gives
+   it to everyone by default, so this only matters if your server turned it off.
 5. Run `cargo run --release` (or the built `bocchi.exe`).
 
 ## Commands

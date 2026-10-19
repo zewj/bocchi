@@ -94,7 +94,7 @@ pub async fn start(config: Config, guilds: Guilds, status: StatusLock) -> Result
                 log!("Online as {} in {} server(s)", ready.user.name, ready.guilds.len());
                 // Exactly the permissions Bocchi uses (see the README).
                 log!(
-                    "Invite link: https://discord.com/oauth2/authorize?client_id={}&permissions=3427328&scope=bot+applications.commands",
+                    "Invite link (includes slash commands): https://discord.com/oauth2/authorize?client_id={}&permissions=3427328&scope=bot+applications.commands",
                     ready.application.id
                 );
                 set(&ready_status, Status::Online { name: ready.user.name.clone(), since: Instant::now() });

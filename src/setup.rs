@@ -114,6 +114,10 @@ pub fn ask_for_token(mut config: Config) -> Result<Config, Error> {
     println!("  1. Open https://discord.com/developers/applications and click New Application.");
     println!("  2. Go to the Bot tab, click Reset Token and copy it.");
     println!("  3. On the same tab, turn ON \"Message Content Intent\" and save.");
+    println!("  4. Once Bocchi is online she prints an invite link. Use that one: it turns on");
+    println!("     slash commands and gives exactly the permissions she needs. If you invite her");
+    println!("     another way (like the Installation tab), tick both \"bot\" and");
+    println!("     \"applications.commands\", or the slash commands won't show up.");
     println!();
     println!("  The token is saved to .env next to this program. Keep that file private:");
     println!("  anyone with the token can control your bot.");
