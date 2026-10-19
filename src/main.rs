@@ -12,6 +12,8 @@ mod commands;
 mod config;
 mod control;
 mod data;
+mod discord_ui;
+mod emojis;
 mod events;
 mod gui;
 mod log;

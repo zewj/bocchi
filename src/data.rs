@@ -1,6 +1,6 @@
 //! Shared state and the type aliases every command uses.
 
-use poise::serenity_prelude::{ChannelId, GuildId, UserId};
+use poise::serenity_prelude::{ChannelId, GuildId, MessageId, UserId};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -42,11 +42,13 @@ pub struct GuildState {
     pub loop_mode: LoopMode,
     /// Where "Now playing" messages go: the channel `play` was last used in.
     pub text_channel: Option<ChannelId>,
+    /// The current "Now playing" card, so it can be updated and replaced.
+    pub now_playing: Option<(ChannelId, MessageId)>,
 }
 
 impl Default for GuildState {
     fn default() -> Self {
-        Self { volume: 1.0, loop_mode: LoopMode::Off, text_channel: None }
+        Self { volume: 1.0, loop_mode: LoopMode::Off, text_channel: None, now_playing: None }
     }
 }
 

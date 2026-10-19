@@ -1,7 +1,7 @@
 //! Small helpers: embeds, time formatting, progress bars, thumbnails.
 
 use crate::data::{Context, Error, TrackInfo};
-use poise::serenity_prelude::{CreateEmbed, CreateEmbedFooter};
+use poise::serenity_prelude::CreateEmbed;
 use std::time::Duration;
 
 /// Bocchi's pink.
@@ -67,15 +67,6 @@ pub fn parse_time(input: &str) -> Option<Duration> {
     Some(Duration::from_secs(secs))
 }
 
-/// ▬▬▬▬🔘▬▬▬▬▬▬
-pub fn progress_bar(position: Duration, length: Option<Duration>) -> String {
-    const WIDTH: usize = 14;
-    let Some(length) = length.filter(|l| !l.is_zero()) else { return "🔴 live".into() };
-    let done = ((position.as_secs_f64() / length.as_secs_f64()) * WIDTH as f64) as usize;
-    let done = done.min(WIDTH - 1);
-    format!("{}🔘{}", "▬".repeat(done), "▬".repeat(WIDTH - 1 - done))
-}
-
 /// The card shown for "Now playing" and `play`.
 pub fn song_embed(heading: &str, song: &TrackInfo) -> CreateEmbed {
     let mut embed = embed()
@@ -105,10 +96,6 @@ fn youtube_id(url: &str) -> Option<&str> {
         .1;
     let id = rest.split(['&', '?', '/']).next()?;
     (id.len() == 11).then_some(id)
-}
-
-pub fn footer(text: impl Into<String>) -> CreateEmbedFooter {
-    CreateEmbedFooter::new(text)
 }
 
 #[cfg(test)]

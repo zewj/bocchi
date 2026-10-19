@@ -102,7 +102,7 @@ impl Shared {
         }
     }
 
-    fn state<T>(&self, guild: GuildId, f: impl FnOnce(&mut GuildState) -> T) -> T {
+    pub fn state<T>(&self, guild: GuildId, f: impl FnOnce(&mut GuildState) -> T) -> T {
         f(self.guilds.lock().unwrap().entry(guild).or_default())
     }
 }
@@ -144,16 +144,13 @@ impl EventHandler for SongStarted {
         if self.announced.swap(true, Ordering::SeqCst) {
             return None; // a resume, not a new song
         }
-        let (channel, loop_mode) = self.shared.state(self.guild, |s| (s.text_channel, s.loop_mode));
-        if loop_mode == LoopMode::Song {
+        if self.shared.state(self.guild, |s| s.loop_mode) == LoopMode::Song {
             let _ = handle.enable_loop();
         }
         SONGS_PLAYED.fetch_add(1, Ordering::Relaxed);
         crate::log!("Now playing: {}", info(handle).title);
-        if let Some(channel) = channel {
-            let embed = util::song_embed("🎸 N-now playing...", &info(handle));
-            let _ = channel.send_message(&self.shared.http, CreateMessage::new().embed(embed)).await;
-        }
+        // In its own task: building the card locks the call, which shouldn't hold up the player.
+        tokio::spawn(crate::discord_ui::post_now_playing(self.shared.clone(), self.guild));
         None
     }
 }
@@ -179,6 +176,7 @@ impl EventHandler for SongEnded {
 
         // Nothing left? Wait a bit, then leave if still idle.
         if call.lock().await.queue().is_empty() {
+            crate::discord_ui::finish(&self.shared, self.guild, "🎸 That's the end of the setlist! Th-thanks for listening...").await;
             let shared = self.shared.clone();
             let guild = self.guild;
             tokio::spawn(async move {

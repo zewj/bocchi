@@ -9,6 +9,15 @@ use std::time::Duration;
 const ALONE_GRACE: Duration = Duration::from_secs(60);
 
 pub async fn handle(ctx: &serenity::Context, event: &FullEvent, data: &Data) -> Result<(), Error> {
+    // Buttons on the "Now playing" card and setlist pages.
+    if let FullEvent::InteractionCreate { interaction: serenity::Interaction::Component(press) } = event {
+        if crate::discord_ui::owns(&press.data.custom_id) {
+            if let Err(e) = crate::discord_ui::on_button(ctx, data, press).await {
+                crate::log!("Button failed: {e}");
+            }
+        }
+    }
+
     if let FullEvent::VoiceStateUpdate { new, .. } = event {
         let Some(guild) = new.guild_id else { return Ok(()) };
         if is_alone(ctx, guild) {
