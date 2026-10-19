@@ -8,7 +8,7 @@ Every command works with the prefix (default `!`) and as a slash command.
 
 ## Setup
 
-1. Needs `yt-dlp` on PATH (keep it updated: `yt-dlp -U`, YouTube changes often).
+1. Needs `yt-dlp` on PATH. The bot updates it on start and every hour after (YouTube blocks old versions).
 2. In the [developer portal](https://discord.com/developers/applications), make a **new** application:
    - **Bot** tab: copy the token, turn on **Message Content Intent**
 3. Put the token in `.env` as `DISCORD_TOKEN=...`. Optional: `GUILD_ID` (instant slash commands) and `PREFIX`.

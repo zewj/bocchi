@@ -64,17 +64,27 @@ async fn main() -> Result<(), Error> {
     Ok(())
 }
 
+/// How often to check for a new yt-dlp.
+const YTDLP_UPDATE_EVERY: std::time::Duration = std::time::Duration::from_secs(60 * 60);
+
 /// YouTube keeps changing, and old yt-dlp versions get blocked (HTTP 403).
-/// Updating on every start keeps songs playing. Runs in the background so startup isn't slowed.
+/// Checks for an update now and then every hour, in the background, so even a bot that runs
+/// for months stays current. Songs already playing keep using the old copy until they end.
 fn update_ytdlp() {
-    std::thread::spawn(|| {
-        match std::process::Command::new("yt-dlp").arg("-U").output() {
-            Ok(out) => {
-                let text = String::from_utf8_lossy(&out.stdout);
-                let last = text.lines().last().unwrap_or("").trim();
-                println!("yt-dlp: {last}");
+    tokio::spawn(async {
+        let mut interval = tokio::time::interval(YTDLP_UPDATE_EVERY);
+        loop {
+            interval.tick().await; // the first tick is immediate
+            match tokio::process::Command::new("yt-dlp").arg("-U").output().await {
+                Ok(out) => {
+                    let text = String::from_utf8_lossy(&out.stdout);
+                    // Only mention it when something actually changed.
+                    if let Some(line) = text.lines().find(|l| l.starts_with("Updated yt-dlp")) {
+                        println!("{}", line.trim());
+                    }
+                }
+                Err(_) => eprintln!("yt-dlp wasn't found on PATH. Music won't play until it's installed."),
             }
-            Err(_) => eprintln!("yt-dlp wasn't found on PATH. Music won't play until it's installed."),
         }
     });
 }
