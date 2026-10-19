@@ -1,17 +1,18 @@
-//! Small helpers: embeds, time formatting, progress bars.
+//! Small helpers: embeds, time formatting, progress bars, thumbnails.
 
 use crate::data::{Context, Error, TrackInfo};
 use poise::serenity_prelude::{CreateEmbed, CreateEmbedFooter};
 use std::time::Duration;
 
-pub const ACCENT: u32 = 0x9B59B6;
+/// Bocchi's pink.
+pub const ACCENT: u32 = 0xF4A7BB;
 pub const FAILURE: u32 = 0xED4245;
 
 pub fn embed() -> CreateEmbed {
     CreateEmbed::new().color(ACCENT)
 }
 
-/// Replies with a short purple embed.
+/// Replies with a short pink embed.
 pub async fn say(ctx: Context<'_>, text: impl Into<String>) -> Result<(), Error> {
     ctx.send(poise::CreateReply::default().embed(embed().description(text.into()))).await?;
     Ok(())
@@ -83,10 +84,27 @@ pub fn song_embed(heading: &str, song: &TrackInfo) -> CreateEmbed {
         .url(&song.url)
         .field("Length", format_length(song.duration), true)
         .field("Requested by", format!("<@{}>", song.requester), true);
-    if let Some(thumbnail) = &song.thumbnail {
+    if let Some(thumbnail) = thumbnail(song) {
         embed = embed.thumbnail(thumbnail);
     }
     embed
+}
+
+/// The song's cover picture. YouTube's is built from the video ID, so playlist songs get one too.
+pub fn thumbnail(song: &TrackInfo) -> Option<String> {
+    youtube_id(&song.url)
+        .map(|id| format!("https://i.ytimg.com/vi/{id}/mqdefault.jpg"))
+        .or_else(|| song.thumbnail.clone())
+}
+
+fn youtube_id(url: &str) -> Option<&str> {
+    let rest = url
+        .split_once("watch?v=")
+        .or_else(|| url.split_once("youtu.be/"))
+        .or_else(|| url.split_once("/shorts/"))?
+        .1;
+    let id = rest.split(['&', '?', '/']).next()?;
+    (id.len() == 11).then_some(id)
 }
 
 pub fn footer(text: impl Into<String>) -> CreateEmbedFooter {
@@ -106,5 +124,8 @@ mod tests {
         assert_eq!(parse_time("abc"), None);
         assert_eq!(format_time(Duration::from_secs(95)), "1:35");
         assert_eq!(format_time(Duration::from_secs(3725)), "1:02:05");
+        assert_eq!(youtube_id("https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=1"), Some("dQw4w9WgXcQ"));
+        assert_eq!(youtube_id("https://youtu.be/dQw4w9WgXcQ"), Some("dQw4w9WgXcQ"));
+        assert_eq!(youtube_id("https://soundcloud.com/a/b"), None);
     }
 }

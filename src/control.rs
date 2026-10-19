@@ -3,7 +3,8 @@
 use crate::bot::Bot;
 use crate::data::{Error, LoopMode, TrackInfo};
 use crate::{player, source};
-use poise::serenity_prelude::{ChannelId, GuildId};
+use poise::serenity_prelude::{ChannelId, GuildId, UserId};
+use std::collections::HashMap;
 use rand::seq::SliceRandom;
 use songbird::tracks::PlayMode;
 use std::time::Duration;
@@ -20,6 +21,8 @@ pub struct PlayerView {
     pub upcoming: Vec<TrackInfo>,
     pub volume: f32,
     pub loop_mode: LoopMode,
+    /// Display names for everyone who requested a song here.
+    pub names: HashMap<UserId, String>,
 }
 
 /// Reads every active player. Called a couple of times a second by the panel.
@@ -33,7 +36,8 @@ pub async fn snapshot(bot: &Bot) -> Vec<PlayerView> {
         let handles = call.queue().current_queue();
         drop(call);
 
-        let (server, channel) = bot
+        let requesters: Vec<UserId> = handles.iter().map(|h| player::info(h).requester).collect();
+        let (server, channel, names) = bot
             .cache
             .guild(guild)
             .map(|g| {
@@ -41,9 +45,13 @@ pub async fn snapshot(bot: &Bot) -> Vec<PlayerView> {
                     .and_then(|c| g.channels.get(&c))
                     .map(|c| c.name.clone())
                     .unwrap_or_else(|| "?".into());
-                (g.name.clone(), channel)
+                let names = requesters
+                    .iter()
+                    .filter_map(|u| g.members.get(u).map(|m| (*u, m.display_name().to_string())))
+                    .collect();
+                (g.name.clone(), channel, names)
             })
-            .unwrap_or_else(|| (guild.to_string(), "?".into()));
+            .unwrap_or_else(|| (guild.to_string(), "?".into(), HashMap::new()));
 
         let mut now = None;
         let mut paused = false;
@@ -60,7 +68,7 @@ pub async fn snapshot(bot: &Bot) -> Vec<PlayerView> {
             (state.volume, state.loop_mode)
         };
 
-        views.push(PlayerView { guild, server, channel, now, paused, upcoming, volume, loop_mode });
+        views.push(PlayerView { guild, server, channel, now, paused, upcoming, volume, loop_mode, names });
     }
     views.sort_by(|a, b| a.server.cmp(&b.server));
     views
@@ -78,6 +86,9 @@ pub enum Action {
     Volume(f32),
     Loop(LoopMode),
     Remove(usize),
+    /// Move a song from one queue position to another.
+    Move(usize, usize),
+    Seek(Duration),
     Add(String),
 }
 
@@ -146,6 +157,27 @@ pub async fn run(bot: &Bot, guild: GuildId, action: Action) -> Result<String, Er
             let title = player::info(&removed).title.clone();
             let _ = removed.stop();
             format!("Removed {title}")
+        }
+        Action::Move(from, to) => {
+            let moved = call.lock().await.queue().modify_queue(|queue| {
+                // Position 0 is the song playing now; it stays put.
+                if from == 0 || to == 0 || from >= queue.len() || to >= queue.len() {
+                    return false;
+                }
+                if let Some(song) = queue.remove(from) {
+                    queue.insert(to, song);
+                }
+                true
+            });
+            if !moved {
+                return Err("That song can't move there.".into());
+            }
+            format!("Moved song #{from} to #{to}")
+        }
+        Action::Seek(position) => {
+            let current = call.lock().await.queue().current().ok_or("Nothing is playing.")?;
+            current.seek_async(position).await.map_err(|_| "Couldn't jump in this song.")?;
+            format!("Jumped to {}", crate::util::format_time(position))
         }
         Action::Add(query) => {
             // Songs added from the panel count as requested by the bot itself.

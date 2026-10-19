@@ -85,7 +85,7 @@ pub async fn start(config: Config, guilds: Guilds, status: StatusLock) -> Result
                     Some(guild) => poise::builtins::register_in_guild(ctx, commands, guild).await?,
                     None => poise::builtins::register_globally(ctx, commands).await?,
                 }
-                ctx.set_activity(Some(serenity::ActivityData::listening(format!("{prefix}play"))));
+                ctx.set_activity(Some(serenity::ActivityData::playing(format!("guitar in the closet 🎸 {prefix}play"))));
                 log!("Online as {} in {} server(s)", ready.user.name, ready.guilds.len());
                 set(&ready_status, Status::Online { name: ready.user.name.clone(), since: Instant::now() });
                 Ok(Data { guilds: data_guilds })

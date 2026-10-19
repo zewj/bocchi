@@ -1,6 +1,6 @@
-# Bocchi
+# 🎸 Bocchi
 
-A Discord music bot written in Rust ([poise](https://github.com/serenity-rs/poise) +
+A shy Discord music bot themed after *Bocchi the Rock!*, written in Rust ([poise](https://github.com/serenity-rs/poise) +
 [songbird](https://github.com/serenity-rs/songbird)). Plays from YouTube, SoundCloud and anything else
 [yt-dlp](https://github.com/yt-dlp/yt-dlp) supports. Search by name or paste a link or playlist.
 
@@ -8,9 +8,10 @@ Every command works with the prefix (default `!`) and as a slash command.
 
 ## Control panel
 
-Running `bocchi.exe` opens a window to start/stop the bot, edit settings (saved to `.env`), and control
-every server it's playing in: now playing with progress, pause/skip/replay/shuffle/stop/leave, volume, loop, add
-songs, and the queue with remove buttons. The log is shown at the bottom and saved to `bocchi.log`.
+Running `bocchi.exe` opens a pink control panel to start/stop the bot, edit settings (saved to `.env`), and control
+every server it's playing in: a now-playing card with album art and a click-to-jump progress bar,
+pause/skip/replay/shuffle/stop/leave, volume, loop, adding songs, and the setlist (queue) with album art and
+move up/down/remove buttons. The log is shown at the bottom and saved to `bocchi.log`.
 
 To run without a window (e.g. as a service): `bocchi.exe --headless`.
 
@@ -41,6 +42,7 @@ Spotify links can't be played directly (search the song name instead). Playlists
 src/
   main.rs        startup (window or --headless), hourly yt-dlp updates
   gui.rs         the control panel window
+  theme.rs       Bocchi's colors and the window icon
   control.rs     what the panel shows and its button actions
   bot.rs         starting / stopping the Discord bot
   config.rs      settings in .env

@@ -11,7 +11,7 @@ pub async fn join(ctx: Context<'_>) -> Result<(), Error> {
     let guild = ctx.guild_id().ok_or("This only works in a server.")?;
     player::remember_text_channel(ctx.data(), guild, ctx.channel_id());
     let channel = player::author_voice_channel(ctx).ok_or("Join a voice channel first.")?;
-    util::say(ctx, format!("👋 Joined <#{channel}>")).await
+    util::say(ctx, format!("👋 H-hi... I joined <#{channel}>")).await
 }
 
 /// Leave the voice channel and clear the queue
@@ -24,7 +24,7 @@ pub async fn leave(ctx: Context<'_>) -> Result<(), Error> {
         call.lock().await.queue().stop();
     }
     manager.remove(guild).await?;
-    util::say(ctx, "👋 Left the voice channel").await
+    util::say(ctx, "👋 Okay... going back to my closet.").await
 }
 
 /// Set the volume (0-200%)
@@ -71,7 +71,7 @@ pub async fn help(
 ) -> Result<(), Error> {
     let config = poise::builtins::HelpConfiguration {
         ephemeral: true,
-        extra_text_at_bottom: "Bocchi",
+        extra_text_at_bottom: "🎸 Bocchi",
         ..Default::default()
     };
     poise::builtins::help(ctx, command.as_deref(), config).await?;

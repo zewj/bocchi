@@ -55,13 +55,13 @@ async fn add_songs(ctx: Context<'_>, query: String, next: bool) -> Result<(), Er
     }
 
     let reply = if count > 1 {
-        util::embed().description(format!("📃 Added **{count}** songs from the playlist"))
+        util::embed().description(format!("📃 A-added **{count}** songs from the playlist... that's a lot of songs..."))
     } else if was_empty {
         // "Now playing" is posted when it actually starts.
-        util::embed().description(format!("🔎 Loading **{}**...", first.title))
+        util::embed().description(format!("🎸 O-okay... getting **{}** ready...", first.title))
     } else {
         let position = if next { "next".to_string() } else { format!("#{}", call.lock().await.queue().len() - 1) };
-        util::song_embed(&format!("➕ Added to the queue · {position}"), &first)
+        util::song_embed(&format!("🎸 Added to the queue · {position}"), &first)
     };
     ctx.send(poise::CreateReply::default().embed(reply)).await?;
     Ok(())
@@ -72,7 +72,7 @@ async fn add_songs(ctx: Context<'_>, query: String, next: bool) -> Result<(), Er
 pub async fn pause(ctx: Context<'_>) -> Result<(), Error> {
     require_same_channel(ctx)?;
     current_call(ctx).await?.lock().await.queue().pause()?;
-    util::say(ctx, "⏸️ Paused").await
+    util::say(ctx, "📦 Paused. I'll hide in my box until you resume...").await
 }
 
 /// Keep playing after a pause
@@ -80,7 +80,7 @@ pub async fn pause(ctx: Context<'_>) -> Result<(), Error> {
 pub async fn resume(ctx: Context<'_>) -> Result<(), Error> {
     require_same_channel(ctx)?;
     current_call(ctx).await?.lock().await.queue().resume()?;
-    util::say(ctx, "▶️ Resumed").await
+    util::say(ctx, "▶️ C-coming out of the box... playing again").await
 }
 
 /// Skip the current song
@@ -92,7 +92,7 @@ pub async fn skip(ctx: Context<'_>) -> Result<(), Error> {
     let current = call.queue().current().ok_or("Nothing is playing.")?;
     let title = player::info(&current).title.clone();
     call.queue().skip()?;
-    util::say(ctx, format!("⏭️ Skipped **{title}**")).await
+    util::say(ctx, format!("⏭️ Skipped **{title}**... s-sorry, was it that bad?")).await
 }
 
 /// Jump to a song in the queue, skipping everything before it
@@ -124,7 +124,7 @@ pub async fn skipto(
 pub async fn stop(ctx: Context<'_>) -> Result<(), Error> {
     require_same_channel(ctx)?;
     current_call(ctx).await?.lock().await.queue().stop();
-    util::say(ctx, "⏹️ Stopped and cleared the queue").await
+    util::say(ctx, "⏹️ Stopped and cleared the queue. Th-the concert's over...").await
 }
 
 /// Jump to a time in the song, e.g. `seek 1:30`

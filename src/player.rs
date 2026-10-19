@@ -8,10 +8,13 @@ use songbird::events::{Event, EventContext, EventHandler, TrackEvent};
 use songbird::tracks::{PlayMode, Track, TrackHandle};
 use songbird::{Call, Songbird};
 use std::collections::HashMap;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use tokio::sync::Mutex as AsyncMutex;
+
+/// Songs started since the app opened (shown in the control panel).
+pub static SONGS_PLAYED: AtomicU64 = AtomicU64::new(0);
 
 /// Leave voice after this long with nothing playing.
 const IDLE_TIMEOUT: Duration = Duration::from_secs(5 * 60);
@@ -145,9 +148,10 @@ impl EventHandler for SongStarted {
         if loop_mode == LoopMode::Song {
             let _ = handle.enable_loop();
         }
+        SONGS_PLAYED.fetch_add(1, Ordering::Relaxed);
         crate::log!("Now playing: {}", info(handle).title);
         if let Some(channel) = channel {
-            let embed = util::song_embed("🎶 Now playing", &info(handle));
+            let embed = util::song_embed("🎸 N-now playing...", &info(handle));
             let _ = channel.send_message(&self.shared.http, CreateMessage::new().embed(embed)).await;
         }
         None
@@ -184,7 +188,7 @@ impl EventHandler for SongEnded {
                     let _ = shared.songbird.remove(guild).await;
                     let channel = shared.state(guild, |s| s.text_channel);
                     if let Some(channel) = channel {
-                        let embed = util::embed().description("👋 Left the voice channel because nothing was playing.");
+                        let embed = util::embed().description("👋 Nobody's playing anything... I'll go back to my closet.");
                         let _ = channel.send_message(&shared.http, CreateMessage::new().embed(embed)).await;
                     }
                 }

@@ -26,7 +26,7 @@ pub async fn handle(ctx: &serenity::Context, event: &FullEvent, data: &Data) -> 
                 let _ = manager.remove(guild).await;
                 crate::log!("Left voice in {guild}: everyone left");
                 if let Some(channel) = text_channel {
-                    let embed = util::embed().description("👋 Left because everyone left the voice channel.");
+                    let embed = util::embed().description("😰 Everyone left... g-going back to my closet.");
                     let _ = channel.send_message(&ctx.http, CreateMessage::new().embed(embed)).await;
                 }
             });

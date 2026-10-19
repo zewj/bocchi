@@ -1,5 +1,6 @@
-//! One log for the whole app: shown in the window, written to `bocchi.log`,
+//! One log for the whole app: shown in the window, written to a file,
 //! and printed to the console (when there is one).
+//! The file is `bocchi.log`.
 
 use std::collections::VecDeque;
 use std::io::Write;

@@ -20,7 +20,7 @@ pub async fn queue(
     let call = current_call(ctx).await?;
     let songs = call.lock().await.queue().current_queue();
     let Some((now, upcoming)) = songs.split_first() else {
-        return util::say(ctx, "The queue is empty. Add something with `play`.").await;
+        return util::say(ctx, "The queue is empty... add something with `play`, p-please?").await;
     };
 
     let pages = upcoming.len().div_ceil(PAGE_SIZE).max(1);
@@ -43,7 +43,7 @@ pub async fn queue(
     let up_next = if lines.is_empty() { "Nothing. Add more with `play`.".to_string() } else { lines.join("\n") };
 
     let embed = util::embed()
-        .title("🎶 Queue")
+        .title("🎸 Setlist")
         .description(format!("**Now playing:** [{}]({})\n\n**Up next:**\n{up_next}", now_info.title, now_info.url))
         .footer(util::footer(format!(
             "Page {page}/{pages} · {} songs · {} total · loop: {}",
@@ -69,7 +69,7 @@ pub async fn nowplaying(ctx: Context<'_>) -> Result<(), Error> {
         util::format_time(state.position),
         util::format_length(song.duration)
     );
-    let embed = util::song_embed("🎶 Now playing", &song)
+    let embed = util::song_embed("🎸 N-now playing...", &song)
         .description(progress)
         .field("Volume", format!("{:.0}%", state.volume * 100.0), true);
     ctx.send(poise::CreateReply::default().embed(embed)).await?;
